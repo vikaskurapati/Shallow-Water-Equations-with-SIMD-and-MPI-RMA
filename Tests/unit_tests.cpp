@@ -9,7 +9,8 @@
 TEST_CASE("FwaveSolve is tested", "[FwaveSolver]") {
 
   Solvers::FWaveSolver<double> fwaveSolver;
-
+  //h is 1-20, hu -> -15  to 15, hv same
+  
   double waveSpeeds[2]  = {-1.5, 1.5};
   double o_hupdateLeft  = 0.1;
   double o_hupdateRight = 0.1;
