@@ -484,6 +484,17 @@ void exchangeLeftRightGhostLayers(
     &status
   );
 
+  // MPI_Win left_win;
+  // MPI_Win_create((void*)leftOutflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
+  // MPI_Put(leftOutflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
+  // MPI_Win_unlock(rightNeighborRank, left_win);
+  // MPI_Win_create(o_rightInflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
+  // MPI_Get(o_rightInflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
+  // MPI_Win_unlock(rightNeighborRank, left_win);
+  // MPI_Win_free(&left_win);
+
   MPI_Sendrecv(
     leftOutflow->hu.getData(),
     1,
