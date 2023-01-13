@@ -31,6 +31,7 @@
 #include <cmath>
 #include <csignal>
 #include <fenv.h>
+#include <iostream>
 #include <mpi.h>
 
 #include "Blocks/Block.hpp"
@@ -43,6 +44,7 @@
 #include "Tools/Args.hpp"
 #include "Tools/Logger.hpp"
 #include "Tools/ProgressBar.hpp"
+#include "Tools/RealType.hpp"
 #include "Writers/Writer.hpp"
 
 #ifndef _MSC_VER
@@ -77,11 +79,11 @@ void exchangeLeftRightGhostLayers(
 );
 void exchangeBottomTopGhostLayers(
   const int              bottomNeighborRank,
-  Blocks::Block1D*       o_bottomNeighborInflow,
-  const Blocks::Block1D* bottomNeighborOutflow,
+  Blocks::Block1D*       o_bottomInflow,
+  const Blocks::Block1D* bottomOutflow,
   const int              topNeighborRank,
-  Blocks::Block1D*       o_topNeighborInflow,
-  const Blocks::Block1D* topNeighborOutflow,
+  Blocks::Block1D*       o_topInflow,
+  const Blocks::Block1D* topOutflow,
   MPI_Datatype           mpiRow
 );
 
@@ -484,48 +486,9 @@ void exchangeLeftRightGhostLayers(
     &status
   );
 
-  // MPI_Win left_win;
-  // MPI_Win_create((void*)leftOutflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
-  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
-  // MPI_Put(leftOutflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
-  // MPI_Win_unlock(rightNeighborRank, left_win);
-  // MPI_Win_create(o_rightInflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
-  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
-  // MPI_Get(o_rightInflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
-  // MPI_Win_unlock(rightNeighborRank, left_win);
-  // MPI_Win_free(&left_win);
+  // auto o_rightInFlow1 = o_rightInflow;
+  // auto o_leftInFlow1  = o_leftInflow;
 
-  MPI_Sendrecv(
-    leftOutflow->hu.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    2,
-    o_rightInflow->hu.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    2,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    leftOutflow->hv.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    3,
-    o_rightInflow->hv.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    3,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  // Send to right, receive from the left:
   MPI_Sendrecv(
     rightOutflow->h.getData(),
     1,
@@ -541,56 +504,184 @@ void exchangeLeftRightGhostLayers(
     &status
   );
 
-  MPI_Sendrecv(
-    rightOutflow->hu.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    5,
-    o_leftInflow->hu.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    5,
-    MPI_COMM_WORLD,
-    &status
-  );
+  // MPI_Win window;
+  // MPI_Win window1;
 
-  MPI_Sendrecv(
-    rightOutflow->hv.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    6,
-    o_leftInflow->hv.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    6,
-    MPI_COMM_WORLD,
-    &status
-  );
+  // int rank;
+
+  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // MPI_Win_create(o_rightInflow->h.getData(), sizeof(mpiCol), sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &window);
+  // MPI_Win_create(o_leftInflow->h.getData(), sizeof(mpiCol), sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &window1);
+
+  // MPI_Win_fence(0, window);
+  // MPI_Win_fence(0, window1);
+
+  // // if (rightNeighborRank != MPI_PROC_NULL) {
+
+  //   // MPI_Win_fence(0, window);
+
+  //   MPI_Put(leftOutflow->h.getData(), 1, MY_MPI_FLOAT, rightNeighborRank, 0, 1, MY_MPI_FLOAT, window);
+
+  //   // std::cout << " here " << rank << " right neighbour exists and put done" << std::endl;
+
+  //   // MPI_Win_fence( 0 , window);
+  // // }
+  // MPI_Win_free(&window);
+
+  // // if (leftNeighborRank != MPI_PROC_NULL) {
+
+  //   // MPI_Win_fence(0, window1);
+
+  //   MPI_Put(rightOutflow->h.getData(), 1, MY_MPI_FLOAT, leftNeighborRank, 0, 1, MY_MPI_FLOAT, window1);
+  //   // std::cout << " here " << rank << "left neighbour exists and put done" << std::endl;
+
+  //   // MPI_Win_fence( 0 , window1);
+  // // }
+  // MPI_Win_free(&window1);
+
+  // MPI_Win left_win;
+  // MPI_Win_create((void*)leftOutflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
+  // MPI_Put(leftOutflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
+  // MPI_Win_unlock(rightNeighborRank, left_win);
+  // MPI_Win_create(o_rightInflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
+  // MPI_Get(o_rightInflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
+  // MPI_Win_unlock(rightNeighborRank, left_win);
+  // MPI_Win_free(&left_win);
+
+  // MPI_Win left_win;
+  // MPI_Win_create((void*)leftOutflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &left_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, left_win);
+  // MPI_Put(leftOutflow->h.getData(), 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, left_win);
+  // MPI_Win_unlock(rightNeighborRank, left_win);
+  // MPI_Win_free(&left_win);
+
+  // MPI_Win right_win;
+  // MPI_Win_create((void*)rightOutflow->h.getData(), 1, sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &right_win);
+  // MPI_Win_lock(MPI_LOCK_SHARED, leftNeighborRank, 0, right_win);
+  // MPI_Put(rightOutflow->h.getData(), 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, right_win);
+  // MPI_Win_unlock(leftNeighborRank, right_win);
+  // MPI_Win_free(&right_win);
+
+  // MPI_Sendrecv(
+  //   leftOutflow->hu.getData(),
+  //   1,
+  //   mpiCol,
+  //   leftNeighborRank,
+  //   2,
+  //   o_rightInflow->hu.getData(),
+  //   1,
+  //   mpiCol,
+  //   rightNeighborRank,
+  //   2,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
+
+  // MPI_Sendrecv(
+  //   leftOutflow->hv.getData(),
+  //   1,
+  //   mpiCol,
+  //   leftNeighborRank,
+  //   3,
+  //   o_rightInflow->hv.getData(),
+  //   1,
+  //   mpiCol,
+  //   rightNeighborRank,
+  //   3,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
+
+  // // Send to right, receive from the left:
+  // MPI_Sendrecv(
+  //   rightOutflow->hu.getData(),
+  //   1,
+  //   mpiCol,
+  //   rightNeighborRank,
+  //   5,
+  //   o_leftInflow->hu.getData(),
+  //   1,
+  //   mpiCol,
+  //   leftNeighborRank,
+  //   5,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
+
+  // MPI_Sendrecv(
+  //   rightOutflow->hv.getData(),
+  //   1,
+  //   mpiCol,
+  //   rightNeighborRank,
+  //   6,
+  //   o_leftInflow->hv.getData(),
+  //   1,
+  //   mpiCol,
+  //   leftNeighborRank,
+  //   6,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
 }
 
 void exchangeBottomTopGhostLayers(
   const int              bottomNeighborRank,
-  Blocks::Block1D*       o_bottomNeighborInflow,
-  const Blocks::Block1D* bottomNeighborOutflow,
+  Blocks::Block1D*       o_bottomInflow,
+  const Blocks::Block1D* bottomOutflow,
   const int              topNeighborRank,
-  Blocks::Block1D*       o_topNeighborInflow,
-  const Blocks::Block1D* topNeighborOutflow,
+  Blocks::Block1D*       o_topInflow,
+  const Blocks::Block1D* topOutflow,
   MPI_Datatype           mpiRow
 ) {
   MPI_Status status;
 
+  MPI_Win window;
+  MPI_Win window1;
+
+  int rank;
+
+  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // MPI_Win_create(o_topInflow->h.getData(), sizeof(mpiRow), sizeof(mpiRow), MPI_INFO_NULL, MPI_COMM_WORLD, &window);
+  // MPI_Win_create(o_bottomInflow->h.getData(), sizeof(mpiRow), sizeof(mpiRow), MPI_INFO_NULL, MPI_COMM_WORLD, &window1);
+
+  // MPI_Win_fence(0, window);
+  // MPI_Win_fence(0, window1);
+
+  // // if (topNeighborRank != MPI_PROC_NULL) {
+
+  //   // MPI_Win_fence(0, window);
+
+  //   MPI_Put(bottomOutflow->h.getData(), 1, MY_MPI_FLOAT, topNeighborRank, 0, 1, MY_MPI_FLOAT, window);
+
+  //   // std::cout << " here " << rank << " top neighbour exists and put done" << std::endl;
+
+  //   // MPI_Win_fence( 0 , window);
+  // // }
+  // MPI_Win_free(&window);
+
+  // // if (bottomNeighborRank != MPI_PROC_NULL) {
+
+  //   // MPI_Win_fence(0, window1);
+
+  //   MPI_Put(topOutflow->h.getData(), 1, MY_MPI_FLOAT, bottomNeighborRank, 0, 1, MY_MPI_FLOAT, window1);
+  //   // std::cout << " here " << rank << "left neighbour exists and put done" << std::endl;
+
+  //   // MPI_Win_fence( 0 , window1);
+  // // }
+  // MPI_Win_free(&window1);
+
   // Send to bottom, receive from the top:
   MPI_Sendrecv(
-    bottomNeighborOutflow->h.getData(),
+    bottomOutflow->h.getData(),
     1,
     mpiRow,
     bottomNeighborRank,
     11,
-    o_topNeighborInflow->h.getData(),
+    o_topInflow->h.getData(),
     1,
     mpiRow,
     topNeighborRank,
@@ -600,78 +691,78 @@ void exchangeBottomTopGhostLayers(
   );
 
   MPI_Sendrecv(
-    bottomNeighborOutflow->hu.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    12,
-    o_topNeighborInflow->hu.getData(),
+    topOutflow->h.getData(),
     1,
     mpiRow,
     topNeighborRank,
-    12,
+    14,
+    o_bottomInflow->h.getData(),
+    1,
+    mpiRow,
+    bottomNeighborRank,
+    14,
     MPI_COMM_WORLD,
     &status
   );
 
-  MPI_Sendrecv(
-    bottomNeighborOutflow->hv.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    13,
-    o_topNeighborInflow->hv.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    13,
-    MPI_COMM_WORLD,
-    &status
-  );
+  // MPI_Sendrecv(
+  //   bottomNeighborOutflow->hu.getData(),
+  //   1,
+  //   mpiRow,
+  //   bottomNeighborRank,
+  //   12,
+  //   o_topNeighborInflow->hu.getData(),
+  //   1,
+  //   mpiRow,
+  //   topNeighborRank,
+  //   12,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
+
+  // MPI_Sendrecv(
+  //   bottomNeighborOutflow->hv.getData(),
+  //   1,
+  //   mpiRow,
+  //   bottomNeighborRank,
+  //   13,
+  //   o_topNeighborInflow->hv.getData(),
+  //   1,
+  //   mpiRow,
+  //   topNeighborRank,
+  //   13,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
 
   // Send to top, receive from the bottom:
-  MPI_Sendrecv(
-    topNeighborOutflow->h.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    14,
-    o_bottomNeighborInflow->h.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    14,
-    MPI_COMM_WORLD,
-    &status
-  );
+  // MPI_Sendrecv(
+  //   topNeighborOutflow->hu.getData(),
+  //   1,
+  //   mpiRow,
+  //   topNeighborRank,
+  //   15,
+  //   o_bottomNeighborInflow->hu.getData(),
+  //   1,
+  //   mpiRow,
+  //   bottomNeighborRank,
+  //   15,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
 
-  MPI_Sendrecv(
-    topNeighborOutflow->hu.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    15,
-    o_bottomNeighborInflow->hu.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    15,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    topNeighborOutflow->hv.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    16,
-    o_bottomNeighborInflow->hv.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    16,
-    MPI_COMM_WORLD,
-    &status
-  );
+  // MPI_Sendrecv(
+  //   topNeighborOutflow->hv.getData(),
+  //   1,
+  //   mpiRow,
+  //   topNeighborRank,
+  //   16,
+  //   o_bottomNeighborInflow->hv.getData(),
+  //   1,
+  //   mpiRow,
+  //   bottomNeighborRank,
+  //   16,
+  //   MPI_COMM_WORLD,
+  //   &status
+  // );
 }
