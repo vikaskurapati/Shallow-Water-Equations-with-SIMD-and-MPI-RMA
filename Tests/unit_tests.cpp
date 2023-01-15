@@ -9,6 +9,7 @@
 #include "SWE-Solvers/Source/FWaveSolver.hpp"
 #include "SWE-Solvers/Source/FWaveVecSolver.hpp"
 #include "Tools/RealType.hpp"
+#include <iostream>
 
 TEST_CASE("fWaveComputeWaveSpeeds is tested for vectorization", "[fWaveComputeWaveSpeeds]") {
   Solvers::FWaveVecSolver<RealType>        fWaveVecSolver;
@@ -78,15 +79,27 @@ TEST_CASE("fWaveComputeWaveSpeeds is tested for vectorization", "[fWaveComputeWa
     o_waveSpeed1_vec
   );
 
-  // bool are_equal = _mm256_movemask_pd(_mm256_cmp_pd(o_waveSpeed0_vec, load_vector(o_waveSpeed0), _CMP_EQ_OQ)) == 0xF;
-
   bool are_equal = true;
 
   for (int i = 0; i < VectorLength; i++) {
-    if (abs(o_waveSpeed0[i] - o_waveSpeed1_vec[i]) < 1e-6) {
+
+    // std::cout << o_waveSpeed0[i] << "    " << o_waveSpeed0_vec[i] << std::endl;
+
+    if (abs(o_waveSpeed0[i] - o_waveSpeed0_vec[i]) > 1e-6) {
+      are_equal = false;
+      // break;
+    }
+  }
+  SECTION("Wave Speed 0") { REQUIRE(are_equal); }
+  
+  are_equal = true;
+
+  for (int i = 0; i < VectorLength; i++) {
+    if (abs(o_waveSpeed1[i] - o_waveSpeed1_vec[i]) > 1e-6) {
       are_equal = false;
       break;
     }
   }
-  SECTION("Wave Speed 0") { REQUIRE(are_equal); }
+  SECTION("Wave Speed 1") { REQUIRE(are_equal); }
+
 }
