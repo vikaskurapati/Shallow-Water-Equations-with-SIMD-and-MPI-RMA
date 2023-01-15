@@ -53,6 +53,27 @@
 #ifdef _MSC_VER
 void fpExceptionHandler(const int signal, const int nSubCode);
 #endif
+static MPI_Comm newcomm;
+#define directions 4
+#define LEFT 0
+#define RIGHT 1
+#define UP 2
+#define DOWN 3
+
+// Define global variables for start and end indices of the grid
+int x_start, x_end, y_start, y_end;
+int save_x_start, save_x_end, save_y_start, save_y_end;
+static int neighbors[directions];
+
+
+// Define varialbes for Cartesian coordinates
+const int num_dims = 2;
+const int reorder = false;
+int num_processors;
+int dims[num_dims];
+int coordinates[num_dims];
+int periods[num_dims];
+
 
 /**
  * Computes the number of block rows from the total number of processes.
@@ -84,6 +105,57 @@ void exchangeBottomTopGhostLayers(
   const Blocks::Block1D* topNeighborOutflow,
   MPI_Datatype           mpiRow
 );
+void exchange_height_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+);
+
+void exchange_hu_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+);
+
+void exchange_hv_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+);
+
 
 int main(int argc, char** argv) {
   //! MPI Rank of a process.
@@ -100,6 +172,24 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   // Determine total number of processes
   MPI_Comm_size(MPI_COMM_WORLD, &numberOfProcesses);
+
+  num_processors = numberOfProcesses;
+
+	for (int i = 0; i < num_dims; i++)
+	{
+		dims[i] = 0;
+		periods[i] = false;
+		coordinates[i] = 0;
+	}
+	// Create new dimensions
+	MPI_Dims_create(num_processors, num_dims, dims);
+	// Create a new communicator
+	MPI_Cart_create(MPI_COMM_WORLD, num_dims, dims, periods, reorder, &newcomm);
+	MPI_Cart_coords(newcomm,mpiRank, num_dims, coordinates);
+	MPI_Cart_shift(newcomm, 0, 1, &neighbors[LEFT], &neighbors[RIGHT]);
+	MPI_Cart_shift(newcomm, 1, 1, &neighbors[UP], &neighbors[DOWN]);
+
+
 
   Tools::Logger::logger.setProcessRank(mpiRank);
   Tools::Logger::logger.printWelcomeMessage();
@@ -137,8 +227,8 @@ int main(int argc, char** argv) {
     break;
   }
 
-  int         numberOfGridCellsX  = args.getArgument<int>("grid-size-x", 16);
-  int         numberOfGridCellsY  = args.getArgument<int>("grid-size-y", 16);
+  int         numberOfGridCellsX  = args.getArgument<int>("grid-size-x", 7);
+  int         numberOfGridCellsY  = args.getArgument<int>("grid-size-y", 7);
   std::string baseName            = args.getArgument<std::string>("output-basepath", "SWE");
   int         numberOfCheckPoints = args.getArgument<int>(
     "number-of-checkpoints", 20
@@ -166,7 +256,13 @@ int main(int argc, char** argv) {
                    : numberOfGridCellsY - (numberOfBlocksY - 1) * (numberOfGridCellsY / numberOfBlocksY);
   int nXNormal = numberOfGridCellsX / numberOfBlocksX;
   int nYNormal = numberOfGridCellsY / numberOfBlocksY;
-
+  x_start = (coordinates[0] * numberOfGridCellsX) / dims[0] + 1;
+	x_end = ((coordinates[0] + 1) * numberOfGridCellsX) / dims[0];
+	y_start = (coordinates[1] * numberOfGridCellsY) / dims[1] + 1;
+	y_end = ((coordinates[1] + 1) * numberOfGridCellsY) / dims[1];
+  // printf("\n%d %d %d %d\n", nXLocal, nYLocal, nXNormal, nYNormal);
+  // printf("\nRank = %d x_start %d y_start  %d x_end  %d  y_end%d \n",mpiRank, x_start, y_start, x_end, y_end);
+  
   Tools::Logger::logger.printNumberOfCellsPerProcess(nXLocal, nYLocal);
 
   // Create a simple artificial scenario
@@ -282,18 +378,66 @@ int main(int argc, char** argv) {
   int topNeighborRank    = (blockPositionY < numberOfBlocksY - 1) ? mpiRank + 1 : MPI_PROC_NULL;
 
   // Print the MPI grid
-  Tools::Logger::logger.getDefaultOutputStream()
-    << "Neighbors: " << leftNeighborRank << " (left), " << rightNeighborRank << " (right), " << bottomNeighborRank
-    << " (bottom), " << topNeighborRank << " (top)" << std::endl;
+  // Tools::Logger::logger.getDefaultOutputStream()
+  //   << "Neighbors: " << leftNeighborRank << " (left), " << rightNeighborRank << " (right), " << bottomNeighborRank
+  //   << " (bottom), " << topNeighborRank << " (top)" << std::endl;
 
   // Intially exchange ghost and copy layers
-  exchangeLeftRightGhostLayers(
-    leftNeighborRank, leftInflow, leftOutflow, rightNeighborRank, rightInflow, rightOutflow, mpiCol
+  exchange_height_info_win(
+    leftNeighborRank,
+    leftOutflow,
+    rightNeighborRank,
+    rightOutflow,
+    mpiCol,
+    mpiRow,
+    bottomNeighborRank,
+    bottomOutflow,
+    topNeighborRank,
+    topOutflow,
+    x_start,
+    y_start,
+    x_end,
+    y_end
   );
+  exchange_hu_info_win(
+    leftNeighborRank,
+    leftOutflow,
+    rightNeighborRank,
+    rightOutflow,
+    mpiCol,
+    mpiRow,
+    bottomNeighborRank,
+    bottomOutflow,
+    topNeighborRank,
+    topOutflow,
+    x_start,
+    y_start,
+    x_end,
+    y_end
+  );
+  exchange_hv_info_win(
+    leftNeighborRank,
+    leftOutflow,
+    rightNeighborRank,
+    rightOutflow,
+    mpiCol,
+    mpiRow,
+    bottomNeighborRank,
+    bottomOutflow,
+    topNeighborRank,
+    topOutflow,
+    x_start,
+    y_start,
+    x_end,
+    y_end
+  );
+  //  exchangeLeftRightGhostLayers(
+  //   leftNeighborRank, leftInflow, leftOutflow, rightNeighborRank, rightInflow, rightOutflow, mpiCol
+  // );
 
-  exchangeBottomTopGhostLayers(
-    bottomNeighborRank, bottomInflow, bottomOutflow, topNeighborRank, topInflow, topOutflow, mpiRow
-  );
+  // exchangeBottomTopGhostLayers(
+  //   bottomNeighborRank, bottomInflow, bottomOutflow, topNeighborRank, topInflow, topOutflow, mpiRow
+  // );
 
   Tools::ProgressBar progressBar(endSimulationTime, mpiRank);
 
@@ -340,6 +484,22 @@ int main(int argc, char** argv) {
       Tools::Logger::logger.resetClockToCurrentTime("CPU-Communication");
 
       // Exchange ghost and copy layers
+      exchange_height_info_win(
+    leftNeighborRank,
+    leftOutflow,
+    rightNeighborRank,
+    rightOutflow,
+    mpiCol,
+    mpiRow,
+    bottomNeighborRank,
+    bottomOutflow,
+    topNeighborRank,
+    topOutflow,
+    x_start,
+    y_start,
+    x_end,
+    y_end
+  );  
       exchangeLeftRightGhostLayers(
         leftNeighborRank, leftInflow, leftOutflow, rightNeighborRank, rightInflow, rightOutflow, mpiCol
       );
@@ -456,6 +616,167 @@ int computeNumberOfBlockRows(int numberOfProcesses) {
     numberOfRows--;
   return numberOfRows;
 }
+
+void exchange_height_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+) {
+  double* u_k;
+  
+  // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>%f<<<<<<<<<<<<>>>>>>><<<<<<<<<<<<<<>>>>>", sizeof(mpiRow));
+  int x_elem = x_end-x_start+1;
+  int y_elem = y_end-y_start+1;
+  int win_size = (x_elem+2)*(y_elem+2);
+  
+
+  u_k        = ( double*)malloc(sizeof(RealType) * win_size);
+  memset(u_k, 0, sizeof(RealType)*win_size);
+  // printf("\nRanks L%d R%d T%d B%d\n",leftNeighborRank, rightNeighborRank, topNeighborRank, bottomNeighborRank);
+
+  u_k[1] = *(topNeighborOutflow->h.getData());
+  u_k[x_elem] = *(leftOutflow->h.getData());
+  u_k[2*x_elem-1] = *(rightOutflow->h.getData());
+  u_k[x_elem*y_elem - x_elem+1] = *(bottomNeighborOutflow->h.getData());
+  
+
+  MPI_Win h_win;
+  // // printf("\nRank: %d, divs: %d, divsx: %d, divsy: %d\n", std::max(leftNeighborRank+1,rightNeighborRank-1),divs,divs_x, divs_y );
+  MPI_Win_create(
+    u_k,
+    win_size*sizeof(RealType),
+    1,
+    MPI_INFO_NULL,
+    MPI_COMM_WORLD,
+    &h_win
+  );
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Win_free(&h_win);
+}
+
+
+void exchange_hu_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+) {
+  double* u_k;
+  
+  // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>%f<<<<<<<<<<<<>>>>>>><<<<<<<<<<<<<<>>>>>", sizeof(mpiRow));
+  int x_elem = x_end-x_start+1;
+  int y_elem = y_end-y_start+1;
+  int win_size = (x_elem+2)*(y_elem+2);
+  u_k        = ( double*)malloc(sizeof(RealType) * win_size);
+  memset(u_k, 0, sizeof(RealType)*win_size);
+  // printf("\nRanks L%d R%d T%d B%d\n",leftNeighborRank, rightNeighborRank, topNeighborRank, bottomNeighborRank);
+  if (leftNeighborRank+2 == 2 || topNeighborRank-2 == 1)
+  {
+  // printf("%d>>>>>>I am hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee<<<<<", *topNeighborOutflow->h.getData());
+  u_k[1] = *(topNeighborOutflow->hu.getData());
+  u_k[x_elem] = *(leftOutflow->hu.getData());
+  u_k[2*x_elem-1] = *(rightOutflow->hu.getData());
+  u_k[x_elem*y_elem - x_elem+1] = *(bottomNeighborOutflow->hu.getData());
+  }
+
+  MPI_Win h_win;
+  // // printf("\nRank: %d, divs: %d, divsx: %d, divsy: %d\n", std::max(leftNeighborRank+1,rightNeighborRank-1),divs,divs_x, divs_y );
+  MPI_Win_create(
+    u_k,
+    win_size*sizeof(RealType),
+    1,
+    MPI_INFO_NULL,
+    MPI_COMM_WORLD,
+    &h_win
+  );
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Win_free(&h_win);
+}
+
+void exchange_hv_info_win(
+  int              leftNeighborRank,
+  Blocks::Block1D* leftOutflow,
+  int              rightNeighborRank,
+  Blocks::Block1D* rightOutflow,
+  MPI_Datatype           mpiCol,
+  MPI_Datatype           mpiRow,
+  int              bottomNeighborRank,
+  Blocks::Block1D* bottomNeighborOutflow,
+  int              topNeighborRank,
+  Blocks::Block1D* topNeighborOutflow,
+  int x_start,
+  int y_start,
+  int x_end,
+  int y_end
+) {
+  double* u_k;
+  
+  // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>%f<<<<<<<<<<<<>>>>>>><<<<<<<<<<<<<<>>>>>", sizeof(mpiRow));
+  int x_elem = x_end-x_start+1;
+  int y_elem = y_end-y_start+1;
+  int win_size = (x_elem+2)*(y_elem+2);
+  u_k        = ( double*)malloc(sizeof(RealType) * win_size);
+  memset(u_k, 0, sizeof(RealType)*win_size);
+  // printf("\nRanks L%d R%d T%d B%d\n",leftNeighborRank, rightNeighborRank, topNeighborRank, bottomNeighborRank);
+  if (leftNeighborRank+2 == 2 || topNeighborRank-2 == 1)
+  {
+  // printf("%d>>>>>>I am hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee<<<<<", *topNeighborOutflow->h.getData());
+  u_k[1] = *(topNeighborOutflow->hv.getData());
+  u_k[x_elem] = *(leftOutflow->hv.getData());
+  u_k[2*x_elem-1] = *(rightOutflow->hv.getData());
+  u_k[x_elem*y_elem - x_elem+1] = *(bottomNeighborOutflow->hv.getData());
+  }
+
+  MPI_Win h_win;
+  // // printf("\nRank: %d, divs: %d, divsx: %d, divsy: %d\n", std::max(leftNeighborRank+1,rightNeighborRank-1),divs,divs_x, divs_y );
+  MPI_Win_create(
+    u_k,
+    win_size*sizeof(RealType),
+    1,
+    MPI_INFO_NULL,
+    MPI_COMM_WORLD,
+    &h_win
+  );
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
+  MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
+  MPI_Win_free(&h_win);
+}
+
 
 void exchangeLeftRightGhostLayers(
   const int              leftNeighborRank,
