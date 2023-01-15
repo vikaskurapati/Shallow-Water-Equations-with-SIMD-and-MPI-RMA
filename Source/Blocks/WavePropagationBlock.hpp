@@ -35,11 +35,11 @@
 #ifdef WITH_SOLVER_HYBRID
 #include "SWE-Solvers/Source/HybridSolver.hpp"
 #elif defined(WITH_SOLVER_FWAVE)
-#ifdef ENABLE_VECTORIZATION
-#include "SWE-Solvers/Source/FWaveVecSolver.hpp"
-#elif
-#include "SWE-Solvers/Source/FWaveSolver.hpp"
-#endif
+  #ifdef ENABLE_VECTORIZATION
+    #include "SWE-Solvers/Source/FWaveVecSolver.hpp"
+  #else
+    #include "SWE-Solvers/Source/FWaveSolver.hpp"
+  #endif
 #elif defined(WITH_SOLVER_AUGRIE)
 #include "SWE-Solvers/Source/AugRieSolver.hpp"
 #else

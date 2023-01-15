@@ -82,12 +82,9 @@ TEST_CASE("fWaveComputeWaveSpeeds is tested for vectorization", "[fWaveComputeWa
   bool are_equal = true;
 
   for (int i = 0; i < VectorLength; i++) {
-
-    // std::cout << o_waveSpeed0[i] << "    " << o_waveSpeed0_vec[i] << std::endl;
-
     if (abs(o_waveSpeed0[i] - o_waveSpeed0_vec[i]) > 1e-6) {
       are_equal = false;
-      // break;
+      break;
     }
   }
   SECTION("Wave Speed 0") { REQUIRE(are_equal); }
@@ -101,5 +98,4 @@ TEST_CASE("fWaveComputeWaveSpeeds is tested for vectorization", "[fWaveComputeWa
     }
   }
   SECTION("Wave Speed 1") { REQUIRE(are_equal); }
-
 }

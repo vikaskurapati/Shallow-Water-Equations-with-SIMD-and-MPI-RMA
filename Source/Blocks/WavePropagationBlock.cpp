@@ -55,7 +55,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 
   #ifdef ENABLE_VECTORIZATION
   for (int i = 1; i < nx_ + 2; i++) {
-    for (int j = 1; j < ny_ + 1; j+=VectorLength) {
+    for (int j = 1; j < ny_ + 1; j++) {
 
       RealType maxEdgeSpeed = RealType(0.0);
 

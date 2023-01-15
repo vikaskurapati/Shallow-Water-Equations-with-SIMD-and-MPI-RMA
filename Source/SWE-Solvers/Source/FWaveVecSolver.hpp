@@ -45,8 +45,9 @@
 #pragma once
 
 #include <cmath>
-#include "Tools/RealType.hpp"
 #include <iostream>
+
+#include "Tools/RealType.hpp"
 
 namespace Solvers {
 
@@ -205,8 +206,8 @@ namespace Solvers {
       T characteristicSpeed1 = uRight + sqrtGravity_ * sqrtHRight; // 2 FLOPs
 
       // Compute "Roe averages"
-      T hRoe     = T(0.5) * (hRight + hLeft);              // 2 FLOPs
-      
+      T hRoe = T(0.5) * (hRight + hLeft); // 2 FLOPs
+
       T sqrtHRoe = std::sqrt(hRoe);                        // 1 FLOP (sqrt)
       T uRoe     = uLeft * sqrtHRoe + uRight * sqrtHRight; // 3 FLOPs
       uRoe /= sqrtHLeft + sqrtHRight;                      // 2 FLOPs (1 div)
@@ -223,7 +224,7 @@ namespace Solvers {
       // 20 FLOPs (incl. 3 sqrt, 1 div, 2 min/max)
     }
 
-  void fWaveComputeWaveSpeeds(
+    void fWaveComputeWaveSpeeds(
       const VectorType hLeft,
       const VectorType hRight,
       const VectorType huLeft,
@@ -232,19 +233,19 @@ namespace Solvers {
       const VectorType uRight,
       const VectorType bLeft,
       const VectorType bRight,
-      VectorType& o_waveSpeed0,
-      VectorType& o_waveSpeed1
-    ) const{
-      VectorType sqrtHLeft = square_root_vector(hLeft);
+      VectorType&      o_waveSpeed0,
+      VectorType&      o_waveSpeed1
+    ) const {
+      VectorType sqrtHLeft  = square_root_vector(hLeft);
       VectorType sqrtHRight = square_root_vector(hRight);
-       
-      VectorType grav = set_vector(sqrtGravity_);
-      VectorType characteristicSpeed0 = sub_vector(uleft, mul_vector(grav, sqrtHLeft));   
+
+      VectorType grav                 = set_vector(sqrtGravity_);
+      VectorType characteristicSpeed0 = sub_vector(uleft, mul_vector(grav, sqrtHLeft));
       VectorType characteristicSpeed1 = add_vector(uRight, mul_vector(grav, sqrtHRight));
-   
-      VectorType hRoe = mul_vector(set_vector(0.5), add_vector(hRight, hLeft));
+
+      VectorType hRoe     = mul_vector(set_vector(0.5), add_vector(hRight, hLeft));
       VectorType sqrtHRoe = square_root_vector(hRoe);
-      VectorType uRoe = add_vector(mul_vector(uleft, sqrtHRoe), mul_vector(uRight, sqrtHRight));
+      VectorType uRoe     = add_vector(mul_vector(uleft, sqrtHRoe), mul_vector(uRight, sqrtHRight));
 
       uRoe = div_vector(uRoe, add_vector(sqrtHLeft, sqrtHRight));
 
@@ -294,6 +295,45 @@ namespace Solvers {
       // =========
       // 23 FLOPs in total (incl. 1 div)
     }
-  };
 
+    void fWaveComputeWaveDecomposition(
+      const VectorType hLeft,
+      const VectorType hRight,
+      const VectorType huLeft,
+      const VectorType huRight,
+      const VectorType uLeft,
+      const VectorType uRight,
+      const VectorType bLeft,
+      const VectorType bRight,
+      const VectorType waveSpeed0,
+      const VectorType waveSpeed1,
+      VectorType&      o_fWave0,
+      VectorType&      o_fWave1
+    ) const {
+      // Calculate modified (bathymetry) flux difference
+      // f(Q_i) - f(Q_{i-1}) -> serve as right hand sides
+      // T fDif0 = huRight - huLeft; // 1 FLOP
+
+      VectorType fDif0 = sub_vector(huRight, huLeft);
+
+      T fDif1 = huRight * uRight + halfGravity_ * hRight * hRight
+                - (huLeft * uLeft + halfGravity_ * hLeft * hLeft); // 9 FLOPs
+
+      // \delta x \Psi[2]
+      fDif1 += halfGravity_ * (hRight + hLeft) * (bRight - bLeft); // 5 FLOPs
+
+      // Solve linear system of equations to obtain f-waves:
+      // (       1            1      ) ( o_fWave0 ) = ( fDif0 )
+      // ( waveSpeed0     waveSpeed1 ) ( o_fWave1 )   ( fDif1 )
+
+      // Compute the inverse of the wave speed difference:
+      T inverseSpeedDiff = T(1.0) / (waveSpeed1 - waveSpeed0); // 2 FLOPs (1 div)
+      // Compute f-waves:
+      o_fWave0 = (waveSpeed1 * fDif0 - fDif1) * inverseSpeedDiff;  // 3 FLOPs
+      o_fWave1 = (-waveSpeed0 * fDif0 + fDif1) * inverseSpeedDiff; // 3 FLOPs
+
+      // =========
+      // 23 FLOPs in total (incl. 1 div)
+    }
+  };
 } // namespace Solvers
