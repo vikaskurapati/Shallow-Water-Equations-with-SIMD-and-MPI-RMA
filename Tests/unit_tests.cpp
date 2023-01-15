@@ -4,7 +4,7 @@
 #include "../catch/catch.hpp"
 
 #define private public
-#include "FWaveSolver.hpp"
+#include "SWE-Solvers/Source/FWaveSolver.hpp"
 
 TEST_CASE("FwaveSolve is tested", "[FwaveSolver]") {
 

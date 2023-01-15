@@ -31,6 +31,7 @@
 #include "WavePropagationBlock.hpp"
 
 #include <iostream>
+#include "Tools/RealType.hpp"
 
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
   Block(nx, ny, dx, dy),
@@ -47,7 +48,36 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Maximum (linearized) wave speed within one iteration
   RealType maxWaveSpeed = RealType(0.0);
 
-  // Compute the net-updates for the vertical edges
+// Compute the net-updates for the vertical edges
+// #ifdef ENABLE_VECTORIZATION
+// #pragma omp declare simd
+// #endif
+
+  #ifdef ENABLE_VECTORIZATION
+  for (int i = 1; i < nx_ + 2; i++) {
+    for (int j = 1; j < ny_ + 1; j+=VectorLength) {
+
+      RealType maxEdgeSpeed = RealType(0.0);
+
+      wavePropagationSolver_.computeNetUpdates(
+        h_[i - 1][j],
+        h_[i][j],
+        hu_[i - 1][j],
+        hu_[i][j],
+        b_[i - 1][j],
+        b_[i][j],
+        hNetUpdatesLeft_[i - 1][j - 1],
+        hNetUpdatesRight_[i - 1][j - 1],
+        huNetUpdatesLeft_[i - 1][j - 1],
+        huNetUpdatesRight_[i - 1][j - 1],
+        maxEdgeSpeed
+      );
+
+      // Update the thread-local maximum wave speed
+      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+    }
+  }
+  #else
   for (int i = 1; i < nx_ + 2; i++) {
     for (int j = 1; j < ny_ + 1; ++j) {
       RealType maxEdgeSpeed = RealType(0.0);
@@ -70,6 +100,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
+  #endif
 
   // Compute the net-updates for the horizontal edges
   for (int i = 1; i < nx_ + 1; i++) {

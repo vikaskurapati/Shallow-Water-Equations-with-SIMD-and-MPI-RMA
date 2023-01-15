@@ -33,11 +33,15 @@
 #include "Block.hpp"
 
 #ifdef WITH_SOLVER_HYBRID
-#include "HybridSolver.hpp"
+#include "SWE-Solvers/Source/HybridSolver.hpp"
 #elif defined(WITH_SOLVER_FWAVE)
-#include "FWaveSolver.hpp"
+#ifdef ENABLE_VECTORIZATION
+#include "SWE-Solvers/Source/FWaveVecSolver.hpp"
+#elif
+#include "SWE-Solvers/Source/FWaveSolver.hpp"
+#endif
 #elif defined(WITH_SOLVER_AUGRIE)
-#include "AugRieSolver.hpp"
+#include "SWE-Solvers/Source/AugRieSolver.hpp"
 #else
 #warning WavePropagationBlock should only be used with Riemann solvers (FWave, AugRie or Hybrid)
 #endif
@@ -59,7 +63,11 @@ namespace Blocks {
     Solvers::HybridSolver<RealType> wavePropagationSolver_;
 #elif defined(WITH_SOLVER_FWAVE)
     //! F-wave Riemann solver
+    #ifdef ENABLE_VECTORIZATION
+    Solvers::FWaveVecSolver<RealType> wavePropagationSolver_;
+    #else
     Solvers::FWaveSolver<RealType> wavePropagationSolver_;
+    #endif
 #elif defined(WITH_SOLVER_AUGRIE)
     //! Approximate Augmented Riemann solver
     Solvers::AugRieSolver<RealType> wavePropagationSolver_;

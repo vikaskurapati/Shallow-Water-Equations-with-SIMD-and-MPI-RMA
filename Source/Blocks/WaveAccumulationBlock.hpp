@@ -36,11 +36,11 @@
 //  - Approximate Augmented Riemann solver (functional implementation: AugRieFunSolver)
 //  - F-Wave (vectorized implementation: FWaveVecSolver)
 #if defined(WITH_SOLVER_AUGRIE)
-#include "AugRieFunSolver.hpp"
+#include "SWE-Solvers/Source/AugRieFunSolver.hpp"
 #elif defined(WITH_SOLVER_HLLE)
-#include "HLLEFunSolver.hpp"
+#include "SWE-Solvers/Source/HLLEFunSolver.hpp"
 #elif defined(WITH_SOLVER_FWAVE)
-#include "FWaveVecSolver.hpp"
+#include "SWE-Solvers/Source/FWaveVecSolver.hpp"
 #else
 #error Chosen wave propagation solver not supported by WaveAccumulationBlock
 #endif
