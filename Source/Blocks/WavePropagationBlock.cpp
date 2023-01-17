@@ -20,16 +20,19 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with SWE.  If not, see <http://www.gnu.org/licenses/>.
+ * along with SWE.  If not, see <http://www.gnu.org/licenses/>.cl
  *
  *
  * @section DESCRIPTION
  *
  * Implementation of Blocks::Block that uses solvers in the wave propagation formulation.
  */
+#include "Tools/RealType.hpp"
+#define VECTOR_LENGTH 4
 
 #include "WavePropagationBlock.hpp"
 
+#include <algorithm>
 #include <iostream>
 
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
@@ -45,12 +48,13 @@ Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, 
 
 void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Maximum (linearized) wave speed within one iteration
-  RealType maxWaveSpeed = RealType(0.0);
-
+  RealType maxWaveSpeed[VECTOR_LENGTH] = {RealType(0.0)};
   // Compute the net-updates for the vertical edges
+  #pragma omp for
   for (int i = 1; i < nx_ + 2; i++) {
+    #pragma omp simd vectorlength(VECTOR_LENGTH)
     for (int j = 1; j < ny_ + 1; ++j) {
-      RealType maxEdgeSpeed = RealType(0.0);
+      RealType maxEdgeSpeed[VECTOR_LENGTH] = {RealType(0.0)};
 
       wavePropagationSolver_.computeNetUpdates(
         h_[i - 1][j],
@@ -63,18 +67,22 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
         hNetUpdatesRight_[i - 1][j - 1],
         huNetUpdatesLeft_[i - 1][j - 1],
         huNetUpdatesRight_[i - 1][j - 1],
-        maxEdgeSpeed
+        maxEdgeSpeed[(j - 1) % VECTOR_LENGTH]
       );
 
       // Update the thread-local maximum wave speed
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      maxWaveSpeed[(j - 1) % VECTOR_LENGTH] = std::max(
+        maxWaveSpeed[(j - 1) % VECTOR_LENGTH], maxEdgeSpeed[(j - 1) % VECTOR_LENGTH]
+      );
     }
   }
 
   // Compute the net-updates for the horizontal edges
+  #pragma omp for
   for (int i = 1; i < nx_ + 1; i++) {
+    #pragma omp simd vectorlength(VECTOR_LENGTH)
     for (int j = 1; j < ny_ + 2; j++) {
-      RealType maxEdgeSpeed = RealType(0.0);
+      RealType maxEdgeSpeed[VECTOR_LENGTH] = {RealType(0.0)};
 
       wavePropagationSolver_.computeNetUpdates(
         h_[i][j - 1],
@@ -87,17 +95,20 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
         hNetUpdatesAbove_[i - 1][j - 1],
         hvNetUpdatesBelow_[i - 1][j - 1],
         hvNetUpdatesAbove_[i - 1][j - 1],
-        maxEdgeSpeed
+        maxEdgeSpeed[(j - 1) % VECTOR_LENGTH]
       );
 
       // Update the thread-local maximum wave speed
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      maxWaveSpeed[(j - 1) % VECTOR_LENGTH] = std::max(
+        maxWaveSpeed[(j - 1) % VECTOR_LENGTH], maxEdgeSpeed[(j - 1) % VECTOR_LENGTH]
+      );
     }
   }
+  auto maximum_wave_speed = std::max_element(maxWaveSpeed, maxWaveSpeed + VECTOR_LENGTH);
 
-  if (maxWaveSpeed > 0.00001) {
+  if (*maximum_wave_speed > 0.00001) {
     // Compute the time step width
-    maxTimeStep_ = std::min(dx_ / maxWaveSpeed, dy_ / maxWaveSpeed);
+    maxTimeStep_ = std::min(dx_ / *maximum_wave_speed, dy_ / *maximum_wave_speed);
 
     // Reduce maximum time step size by "safety factor"
     maxTimeStep_ *= RealType(0.4); // CFL-number = 0.5
@@ -109,7 +120,9 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 
 void Blocks::WavePropagationBlock::updateUnknowns(RealType dt) {
   // Update cell averages with the net-updates
+  #pragma omp parallel for
   for (int i = 1; i < nx_ + 1; i++) {
+    #pragma ivdep
     for (int j = 1; j < ny_ + 1; j++) {
       h_[i][j] -= dt / dx_ * (hNetUpdatesRight_[i - 1][j - 1] + hNetUpdatesLeft_[i][j - 1])
                   + dt / dy_ * (hNetUpdatesAbove_[i - 1][j - 1] + hNetUpdatesBelow_[i - 1][j]);
