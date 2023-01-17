@@ -52,7 +52,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Compute the net-updates for the vertical edges
   #pragma omp for
   for (int i = 1; i < nx_ + 2; i++) {
-    #pragma omp simd vectorlength(VECTOR_LENGTH)
+    #pragma simd vectorlength(VECTOR_LENGTH)
     for (int j = 1; j < ny_ + 1; ++j) {
       RealType maxEdgeSpeed[VECTOR_LENGTH] = {RealType(0.0)};
 
@@ -80,7 +80,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Compute the net-updates for the horizontal edges
   #pragma omp for
   for (int i = 1; i < nx_ + 1; i++) {
-    #pragma omp simd vectorlength(VECTOR_LENGTH)
+    #pragma simd vectorlength(VECTOR_LENGTH)
     for (int j = 1; j < ny_ + 2; j++) {
       RealType maxEdgeSpeed[VECTOR_LENGTH] = {RealType(0.0)};
 
