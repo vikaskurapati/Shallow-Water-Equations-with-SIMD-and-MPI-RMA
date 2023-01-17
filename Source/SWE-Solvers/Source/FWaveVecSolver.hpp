@@ -183,6 +183,22 @@ namespace Solvers {
       // 54 FLOPs (3 sqrt, 4 div, 2 abs, 3 min/max)
     }
 
+    void computeNetUpdates(
+      VectorType  hLeft,
+      VectorType  hRight,
+      VectorType  huLeft,
+      VectorType  huRight,
+      VectorType  bLeft,
+      VectorType  bRight,
+      VectorType& o_hUpdateLeft,
+      VectorType& o_hUpdateRight,
+      VectorType& o_huUpdateLeft,
+      VectorType& o_huUpdateRight,
+      VectorType& o_maxWaveSpeed
+    ) const {
+      
+    }
+
 #ifdef ENABLE_VECTORIZATION
 #pragma omp declare simd
 #endif
@@ -316,21 +332,36 @@ namespace Solvers {
 
       VectorType fDif0 = sub_vector(huRight, huLeft);
 
-      T fDif1 = huRight * uRight + halfGravity_ * hRight * hRight
-                - (huLeft * uLeft + halfGravity_ * hLeft * hLeft); // 9 FLOPs
+      // T fDif1 = huRight * uRight + halfGravity_ * hRight * hRight
+      //           - (huLeft * uLeft + halfGravity_ * hLeft * hLeft); // 9 FLOPs
+
+      VectorType grav = set_vector(halfGravity_);
+
+      VectorType fDif1 = sub_vector(
+        add_vector(mul_vector(huRight, uRight), mul_vector(grav, mul_vector(hRight, hRight))),
+        add_vector(mul_vector(huLeft, uLeft), mul_vector(grav, mul_vector(hLeft, hLeft)))
+      );
 
       // \delta x \Psi[2]
-      fDif1 += halfGravity_ * (hRight + hLeft) * (bRight - bLeft); // 5 FLOPs
+      // fDif1 += halfGravity_ * (hRight + hLeft) * (bRight - bLeft); // 5 FLOPs
+
+      fDif1 = add_vector(fDif1, mul_vector(grav, mul_vector(add_vector(hRight, hLeft), sub_vector(bRight, bLeft))));
 
       // Solve linear system of equations to obtain f-waves:
       // (       1            1      ) ( o_fWave0 ) = ( fDif0 )
       // ( waveSpeed0     waveSpeed1 ) ( o_fWave1 )   ( fDif1 )
 
       // Compute the inverse of the wave speed difference:
-      T inverseSpeedDiff = T(1.0) / (waveSpeed1 - waveSpeed0); // 2 FLOPs (1 div)
+
+      VectorType inverseSpeedDiff = div_vector(set_vector(1.0), sub_vector(waveSpeed1, waveSpeed0));
+
+      // T inverseSpeedDiff = T(1.0) / (waveSpeed1 - waveSpeed0); // 2 FLOPs (1 div)
       // Compute f-waves:
-      o_fWave0 = (waveSpeed1 * fDif0 - fDif1) * inverseSpeedDiff;  // 3 FLOPs
-      o_fWave1 = (-waveSpeed0 * fDif0 + fDif1) * inverseSpeedDiff; // 3 FLOPs
+      // o_fWave0 = (waveSpeed1 * fDif0 - fDif1) * inverseSpeedDiff;  // 3 FLOPs
+      // o_fWave1 = (-waveSpeed0 * fDif0 + fDif1) * inverseSpeedDiff; // 3 FLOPs
+
+      o_fWave0 = mul_vector(sub_vector(mul_vector(waveSpeed1, fDif0), fDif1), inverseSpeedDiff);
+      o_fWave1 = mul_vector(sub_vector(fDif1, mul_vector(waveSpeed0, fDif0)), inverseSpeedDiff);
 
       // =========
       // 23 FLOPs in total (incl. 1 div)
