@@ -32,7 +32,7 @@
 #include <csignal>
 #include <fenv.h>
 #include <mpi.h>
-
+#include <cstring>
 #include "Blocks/Block.hpp"
 #include "Blocks/WavePropagationBlock.hpp"
 #include "Scenarios/BathymetryDamBreakScenario.hpp"
