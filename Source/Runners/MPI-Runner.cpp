@@ -662,9 +662,9 @@ void exchange_height_info_win(
     &h_win
   );
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
-  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 0, 1, mpiRow, h_win);
   MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
   MPI_Win_free(&h_win);
@@ -716,9 +716,9 @@ void exchange_hu_info_win(
     &h_win
   );
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
-  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 0, 1, mpiRow, h_win);
   MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
   MPI_Win_free(&h_win);
@@ -742,7 +742,7 @@ void exchange_hv_info_win(
 ) {
   double* u_k;
   
-  // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>%f<<<<<<<<<<<<>>>>>>><<<<<<<<<<<<<<>>>>>", sizeof(mpiRow));
+  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>%d<<<<<<<<<<<<>>>>>>><<<<<<<<<<<<<<>>>>>", sizeof(mpiRow));
   int x_elem = x_end-x_start+1;
   int y_elem = y_end-y_start+1;
   int win_size = (x_elem+2)*(y_elem+2);
@@ -769,9 +769,9 @@ void exchange_hv_info_win(
     &h_win
   );
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
-  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 1, 1, mpiCol, h_win);
-  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 1, 1, mpiRow, h_win);
+  MPI_Put(&u_k[x_elem], 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[2*x_elem-1], 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, h_win);
+  MPI_Put(&u_k[1], 1, mpiRow, topNeighborRank, 0, 1, mpiRow, h_win);
   MPI_Put(&u_k[x_elem*y_elem - x_elem+1], 1, mpiRow, bottomNeighborRank, 1 , 1, mpiRow, h_win);
   MPI_Win_fence(MPI_MODE_NOPRECEDE, h_win);
   MPI_Win_free(&h_win);
