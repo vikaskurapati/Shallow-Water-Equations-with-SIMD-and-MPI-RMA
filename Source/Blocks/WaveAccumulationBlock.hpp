@@ -27,7 +27,7 @@
  *
  * Blocks::Block, which uses solvers in the wave propagation formulation.
  */
-ii
+
 #pragma once
 
 #include "Block.hpp"

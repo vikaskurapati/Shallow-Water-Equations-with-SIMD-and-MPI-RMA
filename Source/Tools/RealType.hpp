@@ -17,6 +17,9 @@ constexpr auto div_vector = _mm256_div_ps;
 constexpr auto set_vector = _mm256_set1_ps;
 constexpr auto min_vector = _mm256_min_ps;
 constexpr auto max_vector = _mm256_max_ps;
+constexpr auto compare_vector = _mm256_cmp_ps;
+constexpr auto bitwise_and = _mm256_and_ps;
+constexpr auto bitwise_or = _mm256_or_ps;
 #define MY_MPI_FLOAT MPI_FLOAT
 #else
 using RealType = double;
@@ -32,5 +35,8 @@ constexpr auto div_vector = _mm256_div_pd;
 constexpr auto set_vector = _mm256_set1_pd;
 constexpr auto min_vector = _mm256_min_pd;
 constexpr auto max_vector = _mm256_max_pd;
+constexpr auto compare_vector = _mm256_cmp_pd;
+constexpr auto bitwise_and = _mm256_and_pd;
+constexpr auto bitwise_or = _mm256_or_pd;
 #define MY_MPI_FLOAT MPI_DOUBLE
 #endif

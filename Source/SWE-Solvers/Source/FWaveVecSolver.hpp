@@ -196,7 +196,20 @@ namespace Solvers {
       VectorType& o_huUpdateRight,
       VectorType& o_maxWaveSpeed
     ) const {
-      
+      VectorType dryTolVec = load_vector(dryTol_);
+      VectorType cmp1 = compare_vector(hLeft, dryTolVec, _CMP_GE_OQ);
+      VectorType cmp2 = compare_vector(hRight, dryTolVec, _CMP_LT_OQ);
+
+      VectorType drywet = bitwise_and(cmp1, cmp2);
+
+      VectorType cmp3 = compare_vector(dryTolVec, hLeft, _CMP_GT_OQ);
+      VectorType cmp4 = compare_vector(hRight, dryTolVec, _CMP_GE_OQ);
+
+      VectorType wetdry = bitwise_and(cmp3, cmp4);
+
+      VectorType drydry = bitwise_or(drywet, wetdry);
+
+
     }
 
 #ifdef ENABLE_VECTORIZATION
