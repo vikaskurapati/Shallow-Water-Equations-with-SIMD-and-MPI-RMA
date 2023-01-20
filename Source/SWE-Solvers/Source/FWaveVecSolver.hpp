@@ -125,7 +125,7 @@ namespace Solvers {
       // Velocity on the right side of the edge
       T uRight = huRight / hRight; // 1 FLOP (div)
 
-      /// Wave speeds of the f-waves
+      /// Wave spweeds of the f-waves
       T waveSpeeds0 = T(0.0);
       T waveSpeeds1 = T(0.0);
 
@@ -147,7 +147,7 @@ namespace Solvers {
       o_hUpdateRight  = T(0.0);
       o_huUpdateLeft  = T(0.0);
       o_huUpdateRight = T(0.0);
-
+      
       // 1st wave family
       if (waveSpeeds0 < -zeroTol_) { // Left going
         o_hUpdateLeft += fWaves0;
@@ -196,22 +196,97 @@ namespace Solvers {
       VectorType& o_huUpdateRight,
       VectorType& o_maxWaveSpeed
     ) const {
-      VectorType dryTolVec = load_vector(dryTol_);
-      VectorType cmp1 = compare_vector(hLeft, dryTolVec, _CMP_GE_OQ);
-      VectorType cmp2 = compare_vector(hRight, dryTolVec, _CMP_LT_OQ);
+      __m256d mask1 = mm256_cmp_pd(hLeft, dryTol_, _CMP_GE_OQ);
+      __m256d mask2 = mm256_cmp_pd(hRight, dryTol_, _CMP_LT_OQ);
+      __m256d mask3 = mm256_cmp_pd(hRight, dryTol_, _CMP_GE_OQ);
 
-      VectorType drywet = bitwise_and(cmp1, cmp2);
+      __m256d mask4 = _mm256_and_pd(mask1, mask2);
+      __m256d mask5 = _mm256_andnot_pd(mask1, mask3);
+      __m256d mask6 = _mm256_andnot_pd(mask4, mask5);
 
-      VectorType cmp3 = compare_vector(dryTolVec, hLeft, _CMP_GT_OQ);
-      VectorType cmp4 = compare_vector(hRight, dryTolVec, _CMP_GE_OQ);
+      // Dry/Wet case
+    __m256d dry_wet_hRight = _mm256_and_pd(mask4, hLeft);
+    __m256d dry_wet_huRight = _mm256_and_pd(mask4, _mm256_mul_pd(huLeft, _mm256_set1_pd(-1)));
+    __m256d dry_wet_bRight = _mm256_and_pd(mask4, bLeft);
 
-      VectorType wetdry = bitwise_and(cmp3, cmp4);
+    // Wet/Dry case
+    __m256d wet_dry_hLeft = _mm256_and_pd(mask5, hRight);
+    __m256d wet_dry_huLeft = _mm256_and_pd(mask5, _mm256_mul_pd(huRight, _mm256_set1_pd(-1)));
+    __m256d wet_dry_bLeft = _mm256_and_pd(mask5, bRight); 
 
-      VectorType drydry = bitwise_or(drywet, wetdry);
+
+    // Dry/Dry case
+  __m256d dry_dry_hLeft = _mm256_and_pd(mask6, mm256_set1_pd(dryTol_));
+  __m256d dry_dry_huLeft = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
+  __m256d dry_dry_bLeft = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
+  __m256d dry_dry_hRight = _mm256_and_pd(mask6, mm256_set1_pd(dryTol_));
+  __m256d dry_dry_huRight = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
+  __m256d dry_dry_bRight = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));   
+
+  __m256d uLeft = _mm256_div_pd(huLeft, hLeft);
+  __m256d uRight = _mm256_div_pd(huRight, hRight);
+  // hRight = _mm256_or_pd(dry_wet_hRight, _mm256_or_pd(wet_dry_hRight, dry_dry_hRight));
+  // huRight = _mm256_or_pd(dry_wet_huRight, _mm256_or_pd(wet_dry_huRight, dry_dry_huRight));
+  // bRight = _mm256_or_pd(dry_wet_bRight, mm256_or_pd(wet_dry_bRight, dry_dry_bRight));
+  __m256d waveSpeeds0 = _mm256_setzero_pd();
+  __m256d waveSpeeds1 = _mm256_setzero_pd();
+  __m256d fWaves0 = _mm256_setzero_pd();
+  __m256d fWaves1 = _mm256_setzero_pd();
+    
+  fWaveComputeWaveDecomposition(
+        hLeft, hRight, huLeft, huRight, uLeft, uRight, bLeft, bRight, waveSpeeds0, waveSpeeds1, fWaves0, fWaves1
+      );
+
+// Compute the net-updates
+o_hUpdateLeft = _mm256_setzero_pd();
+o_hUpdateRight = _mm256_setzero_pd();
+o_huUpdateLeft = _mm256_setzero_pd();
+o_huUpdateRight = _mm256_setzero_pd();
+
+// 1st wave family
+__m256d waveSpeeds0_lt = _mm256_cmp_pd(waveSpeeds0, _mm256_set1_pd(-zeroTol_), _CMP_LT_OQ);
+__m256d waveSpeeds0_gt = _mm256_cmp_pd(waveSpeeds0, _mm256_set1_pd(zeroTol_), _CMP_GT_OQ);
+__m256d update_left = _mm256_and_pd(fWaves0, waveSpeeds0_lt);
+__m256d update_right = _mm256_and_pd(fWaves0, waveSpeeds0_gt);
+__m256d update_split = _mm256_andnot_pd(waveSpeeds0_lt, waveSpeeds0_gt);
+update_left = _mm256_add_pd(update_left, _mm256_mul_pd(update_split, _mm256_set1_pd(0.5)));
+update_right = _mm256_add_pd(update_right, _mm256_mul_pd(update_split, _mm256_set1_pd(0.5)));
+o_hUpdateLeft = _mm256_add_pd(o_hUpdateLeft, update_left);
+o_huUpdateLeft = _mm256_add_pd(o_huUpdateLeft, _mm256_mul_pd(update_left, waveSpeeds0));
+o_hUpdateRight = _mm256_add_pd(o_hUpdateRight, update_right);
+o_huUpdateRight = _mm256_add_pd(o_huUpdateRight, _mm256_mul_pd(update_right, waveSpeeds0));
 
 
-    }
+// 2nd Wave family
+__m256d zeroTol_v = mm256_set1_pd(zeroTol_);
+__m256d half_v = _mm256_set1_pd(0.5);
 
+__m256d cmpRight_v = _mm256_cmp_pd(waveSpeeds1, zeroTol_v, _CMP_GT_OQ);
+__m256d cmpLeft_v = _mm256_cmp_pd(waveSpeeds1, zeroTol_v, _CMP_LT_OQ);
+
+
+o_hUpdateRight = _mm256_add_pd(o_hUpdateRight, _mm256_and_pd(cmpRight_v, fWaves1));
+o_huUpdateRight = _mm256_add_pd(o_huUpdateRight, _mm256_mul_pd(_mm256_and_pd(cmpRight_v, fWaves1), waveSpeeds1));
+o_hUpdateLeft = _mm256_add_pd(o_hUpdateLeft, _mm256_and_pd(cmpLeft_v, fWaves1));
+o_huUpdateLeft = _mm256_add_pd(o_huUpdateLeft, _mm256_mul_pd(_mm256_and_pd(cmpLeft_v, fWaves1), waveSpeeds1));
+
+__m256d o_hUpdateSplit_v = _mm256_mul_pd(half_v, fWaves1);
+__m256d o_huUpdateSplit_v = _mm256_mul_pd(_mm256_mul_pd(half_v, fWaves1), waveSpeeds1);
+
+o_hUpdateRight = _mm256_add_pd(o_hUpdateRight, _mm256_andnot_pd(cmpRight_v, o_hUpdateSplit_v));
+o_huUpdateRight = _mm256_add_pd(o_huUpdateRight, _mm256_andnot_pd(cmpRight_v, o_huUpdateSplit_v));
+o_hUpdateLeft = _mm256_add_pd(o_hUpdateLeft, _mm256_andnot_pd(cmpLeft_v, o_hUpdateSplit_v));
+o_huUpdateLeft = _mm256_add_pd(o_huUpdateLeft, _mm256_andnot_pd(cmpLeft_v, o_huUpdateSplit_v));
+
+
+__m256d absWaveSpeeds0_v = _mm256_and_pd(waveSpeeds0, _mm256_set1_pd(-0.0));
+__m256d absWaveSpeeds1_v = _mm256_and_pd(waveSpeeds1, _mm256_set1_pd(-0.0));
+
+__m256d maxWaveSpeeds_v = _mm256_max_pd(absWaveSpeeds0_v, absWaveSpeeds1_v);
+o_maxWaveSpeed = maxWaveSpeeds_v;
+
+}    
+      
 #ifdef ENABLE_VECTORIZATION
 #pragma omp declare simd
 #endif
