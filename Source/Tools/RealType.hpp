@@ -1,5 +1,4 @@
 #include <immintrin.h>
-#include "immintrin.h"
 #pragma once
 
 // Datatype for the type of data stored in the structures
@@ -20,6 +19,7 @@ constexpr auto max_vector = _mm256_max_ps;
 constexpr auto compare_vector = _mm256_cmp_ps;
 constexpr auto bitwise_and = _mm256_and_ps;
 constexpr auto bitwise_or = _mm256_or_ps;
+constexpr auto blend_vector = _mm256_blendv_ps;
 #define MY_MPI_FLOAT MPI_FLOAT
 #else
 using RealType = double;
@@ -38,5 +38,6 @@ constexpr auto max_vector = _mm256_max_pd;
 constexpr auto compare_vector = _mm256_cmp_pd;
 constexpr auto bitwise_and = _mm256_and_pd;
 constexpr auto bitwise_or = _mm256_or_pd;
+constexpr auto blend_vector = _mm256_blendv_pd;
 #define MY_MPI_FLOAT MPI_DOUBLE
 #endif
