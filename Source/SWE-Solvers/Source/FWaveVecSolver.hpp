@@ -196,9 +196,12 @@ namespace Solvers {
       VectorType& o_huUpdateRight,
       VectorType& o_maxWaveSpeed
     ) const {
-      __m256d mask1 = mm256_cmp_pd(hLeft, dryTol_, _CMP_GE_OQ);
-      __m256d mask2 = mm256_cmp_pd(hRight, dryTol_, _CMP_LT_OQ);
-      __m256d mask3 = mm256_cmp_pd(hRight, dryTol_, _CMP_GE_OQ);
+
+      VectorType dryTol_vec = set_vector(dryTol_);
+
+      __m256d mask1 = _mm256_cmp_pd(hLeft, dryTol_vec, _CMP_GE_OQ);
+      __m256d mask2 = _mm256_cmp_pd(hRight, dryTol_vec, _CMP_LT_OQ);
+      __m256d mask3 = _mm256_cmp_pd(hRight, dryTol_vec, _CMP_GE_OQ);
 
       __m256d mask4 = _mm256_and_pd(mask1, mask2);
       __m256d mask5 = _mm256_andnot_pd(mask1, mask3);
@@ -216,10 +219,10 @@ namespace Solvers {
 
 
     // Dry/Dry case
-  __m256d dry_dry_hLeft = _mm256_and_pd(mask6, mm256_set1_pd(dryTol_));
+  __m256d dry_dry_hLeft = _mm256_and_pd(mask6, _mm256_set1_pd(dryTol_));
   __m256d dry_dry_huLeft = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
   __m256d dry_dry_bLeft = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
-  __m256d dry_dry_hRight = _mm256_and_pd(mask6, mm256_set1_pd(dryTol_));
+  __m256d dry_dry_hRight = _mm256_and_pd(mask6, _mm256_set1_pd(dryTol_));
   __m256d dry_dry_huRight = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));
   __m256d dry_dry_bRight = _mm256_and_pd(mask6, _mm256_set1_pd(0.0));   
 
@@ -258,7 +261,7 @@ o_huUpdateRight = _mm256_add_pd(o_huUpdateRight, _mm256_mul_pd(update_right, wav
 
 
 // 2nd Wave family
-__m256d zeroTol_v = mm256_set1_pd(zeroTol_);
+__m256d zeroTol_v = _mm256_set1_pd(zeroTol_);
 __m256d half_v = _mm256_set1_pd(0.5);
 
 __m256d cmpRight_v = _mm256_cmp_pd(waveSpeeds1, zeroTol_v, _CMP_GT_OQ);
