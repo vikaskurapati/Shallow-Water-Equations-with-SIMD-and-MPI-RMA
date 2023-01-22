@@ -287,12 +287,12 @@ int main(int argc, char** argv) {
     mpiCol
   );
   exchangeLayers_h(
-    topNeighborRank,
-    topInflow->h.getData(),
-    topOutflow->h.getData(),
     bottomNeighborRank,
     bottomInflow->h.getData(),
     bottomOutflow->h.getData(),
+    topNeighborRank,
+    topInflow->h.getData(),
+    topOutflow->h.getData(),
     mpiRow
   );
 
@@ -387,12 +387,12 @@ int main(int argc, char** argv) {
         mpiCol
       );
       exchangeLayers_h(
-        topNeighborRank,
-        topInflow->h.getData(),
-        topOutflow->h.getData(),
         bottomNeighborRank,
         bottomInflow->h.getData(),
         bottomOutflow->h.getData(),
+        topNeighborRank,
+        topInflow->h.getData(),
+        topOutflow->h.getData(),
         mpiRow
       );
 
@@ -557,17 +557,15 @@ void exchangeLayers_h(
   MPI_Win_create(leftOutflow, 1 * sizeof(mpiCol), sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin);
   MPI_Win_create(rightOutflow, 1 * sizeof(mpiCol), sizeof(mpiCol), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin);
   // // Send to left, receive from the right:
-  if (leftNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, leftNeighborRank, 0, rightWin);
+  MPI_Win_fence(0, leftWin);
+  MPI_Win_fence(1, rightWin);
     MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
-    MPI_Win_unlock(leftNeighborRank, rightWin);
-  }
-
-  if (rightNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, leftWin);
-    MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
-    MPI_Win_unlock(rightNeighborRank, leftWin);
-  }
+    // MPI_Win_unlock(rightNeighborRank, leftWin);
+  
+  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
+    // MPI_Win_unlock(leftNeighborRank, rightWin);
+  MPI_Win_fence(1, rightWin);
+MPI_Win_fence(0, leftWin);
 
   // Free the window objects
   MPI_Win_free(&leftWin);
