@@ -144,16 +144,12 @@ int main(int argc, char** argv) {
   // Determine the layout of MPI-ranks: use numberOfBlocksY*numberOfBlocksX grid blocks
 
   int numberOfBlocksY = computeNumberOfBlockRows(numberOfProcesses);
-  if (numberOfBlocksY == 0) {
-    // //std::cout<<"????????????????????????????????????????????????????????Fuck"<<std::endl;
-  }
+  
   int numberOfBlocksX = numberOfProcesses / numberOfBlocksY;
   Tools::Logger::logger.printNumberOfBlocks(numberOfBlocksX, numberOfBlocksY);
 
   // Determine local block coordinates of each block
-  if (numberOfBlocksX == 0 || numberOfBlocksY == 0) {
-    // //std::cout<<"????????????????????????????????????????????????????????Fuck"<<std::endl;
-  }
+  
 
   int blockPositionX = mpiRank / numberOfBlocksY;
   int blockPositionY = mpiRank % numberOfBlocksY;
@@ -198,9 +194,7 @@ int main(int argc, char** argv) {
 
   // Compute the checkpoints in time
   for (int cp = 0; cp <= numberOfCheckPoints; cp++) {
-    if (numberOfCheckPoints == 0) {
-      // //std::cout<<"Jere<<<<<<<<<<<<<<";
-    }
+   
     checkPoints[cp] = cp * (endSimulationTime / numberOfCheckPoints);
   }
 
@@ -294,11 +288,7 @@ int main(int argc, char** argv) {
     << "Neighbors: " << leftNeighborRank << " (left), " << rightNeighborRank << " (right), " << bottomNeighborRank
     << " (bottom), " << topNeighborRank << " (top)" << std::endl;
   // //std::cout<<mpiRank<<" before ex "<<  *rightInflow->h.getData()<<std::endl;
-  if (mpiRank == 2) {
-    for (int i = 0; i < nYLocal + 2; i++) {
-      // std::cout << "\nBEFORE a[" << i << "] = " << *(leftOutflow->h.getData() + i) << std::endl;
-    }
-  }
+  
   exchangeLayers(
     leftNeighborRank,
     leftInflow->h.getData(),
@@ -321,11 +311,7 @@ int main(int argc, char** argv) {
     mpirow_len
   );
 
-  if (mpiRank == 0) {
-    for (int i = 0; i < nYLocal + 2; i++) {
-      // std::cout << "\nAFTER b[" << i << "] = " << *(rightInflow->h.getData() + i) << std::endl;
-    }
-  }
+
   exchangeLayers(
     leftNeighborRank,
     leftInflow->hu.getData(),
@@ -367,8 +353,7 @@ int main(int argc, char** argv) {
     mpiRow,
     mpirow_len
   );
-  // //std::cout<<mpiRank<<" AFTER ex "<<  *rightInflow->h.getData()<<std::endl;
-
+  
   Tools::ProgressBar progressBar(endSimulationTime, mpiRank);
 
   Tools::Logger::logger.printOutputTime(0.0);
@@ -605,11 +590,13 @@ void exchangeLayers(
   );
 
   // MPI_Win_fence(0, rightWin);
-  if (rightNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, rightWin);
+  // if (rightNeighborRank >= 0) {
+    // MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, rightWin);
+     MPI_Win_fence(0, rightWin);
     MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
-    MPI_Win_unlock(rightNeighborRank, rightWin);
-  }
+    // MPI_Win_unlock(rightNeighborRank, rightWin);
+     MPI_Win_fence(0, rightWin);
+  // }
 
   MPI_Win_free(&rightWin);
 
@@ -618,12 +605,15 @@ void exchangeLayers(
     rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
   );
 
-  // MPI_Win_fence(0, leftWin);
-  if (leftNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, leftNeighborRank, 0, leftWin);
+  MPI_Win_fence(0, leftWin);
+  // if (leftNeighborRank >= 0) {
+  
+    // MPI_Win_lock(MPI_LOCK_SHARED, leftNeighborRank, 0, leftWin);
     MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
-    MPI_Win_unlock(leftNeighborRank, leftWin);
-  }
+    // MPI_Win_unlock(leftNeighborRank, leftWin);
+      MPI_Win_fence(0, leftWin);
+    
+  // }
   // MPI_Win_fence(0, leftWin);
   MPI_Win_free(&leftWin);
 }
