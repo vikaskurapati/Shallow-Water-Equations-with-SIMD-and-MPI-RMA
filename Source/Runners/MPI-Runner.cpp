@@ -589,12 +589,10 @@ void exchangeLayers_h(
     leftOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
   );
 
-  // MPI_Win_fence(0, rightWin);
-  if (rightNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, rightNeighborRank, 0, rightWin);
-    MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
-    MPI_Win_unlock(rightNeighborRank, rightWin);
-  }
+  MPI_Win_fence(0, rightWin);
+  MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
+  MPI_Win_fence(0, rightWin);
+  
 
   MPI_Win_free(&rightWin);
 
@@ -603,12 +601,8 @@ void exchangeLayers_h(
     rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
   );
 
-  // MPI_Win_fence(0, leftWin);
-  if (leftNeighborRank >= 0) {
-    MPI_Win_lock(MPI_LOCK_SHARED, leftNeighborRank, 0, leftWin);
-    MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
-    MPI_Win_unlock(leftNeighborRank, leftWin);
-  }
-  // MPI_Win_fence(0, leftWin);
+  MPI_Win_fence(0, leftWin);
+  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
+  MPI_Win_fence(0, leftWin);
   MPI_Win_free(&leftWin);
 }
