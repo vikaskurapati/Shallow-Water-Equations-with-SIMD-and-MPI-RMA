@@ -31,7 +31,7 @@
 #include "WavePropagationBlock.hpp"
 
 #include <iostream>
-
+#include<omp.h>
 
 #ifdef ENABLE_OPENMP
 #include <omp.h>
