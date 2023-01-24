@@ -37,6 +37,8 @@
 #include <omp.h>
 #endif
 
+#include "WavePropagationBlock.hpp"
+
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
   Block(nx, ny, dx, dy),
   hNetUpdatesLeft_(nx + 1, ny),
