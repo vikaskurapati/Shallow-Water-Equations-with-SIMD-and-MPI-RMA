@@ -67,7 +67,7 @@ void fpExceptionHandler(const int signal, const int nSubCode);
  */
 int computeNumberOfBlockRows(int numberOfProcesses);
 
-void exchangeLayers_h(
+void exchangeLayers(
   const int    leftNeighborRank,
   double*      o_leftInflow,
   double*      leftOutflow,
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
       // std::cout << "\nBEFORE a[" << i << "] = " << *(leftOutflow->h.getData() + i) << std::endl;
     }
   }
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->h.getData(),
     leftOutflow->h.getData(),
@@ -310,7 +310,7 @@ int main(int argc, char** argv) {
     mpicol_len
   );
   //////std::cout<<mpiRank<<" after ex "<<  *rightInflow->h.getData()<<std::endl;
-  exchangeLayers_h(
+  exchangeLayers(
     bottomNeighborRank,
     bottomInflow->h.getData(),
     bottomOutflow->h.getData(),
@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
       // std::cout << "\nAFTER b[" << i << "] = " << *(rightInflow->h.getData() + i) << std::endl;
     }
   }
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->hu.getData(),
     leftOutflow->hu.getData(),
@@ -336,7 +336,7 @@ int main(int argc, char** argv) {
     mpiCol,
     mpicol_len
   );
-  exchangeLayers_h(
+  exchangeLayers(
     topNeighborRank,
     topInflow->hu.getData(),
     topOutflow->hu.getData(),
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
     mpirow_len
   );
 
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->hv.getData(),
     leftOutflow->hv.getData(),
@@ -357,7 +357,7 @@ int main(int argc, char** argv) {
     mpiCol,
     mpicol_len
   );
-  exchangeLayers_h(
+  exchangeLayers(
     topNeighborRank,
     topInflow->hv.getData(),
     topOutflow->hv.getData(),
@@ -413,7 +413,7 @@ int main(int argc, char** argv) {
       // Reset CPU-Communication clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU-Communication");
       // //std::cout<<mpiRank<<" before ex CP"<<  *rightInflow->h.getData()<<std::endl;
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->h.getData(),
         leftOutflow->h.getData(),
@@ -424,7 +424,7 @@ int main(int argc, char** argv) {
         mpicol_len
       );
 
-      exchangeLayers_h(
+      exchangeLayers(
         bottomNeighborRank,
         bottomInflow->h.getData(),
         bottomOutflow->h.getData(),
@@ -435,7 +435,7 @@ int main(int argc, char** argv) {
         mpirow_len
       );
 
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->hu.getData(),
         leftOutflow->hu.getData(),
@@ -445,7 +445,7 @@ int main(int argc, char** argv) {
         mpiCol,
         mpicol_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         topNeighborRank,
         topInflow->hu.getData(),
         topOutflow->hu.getData(),
@@ -455,7 +455,7 @@ int main(int argc, char** argv) {
         mpiRow,
         mpirow_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->hv.getData(),
         leftOutflow->hv.getData(),
@@ -465,7 +465,7 @@ int main(int argc, char** argv) {
         mpiCol,
         mpicol_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         topNeighborRank,
         topInflow->hv.getData(),
         topOutflow->hv.getData(),
@@ -586,7 +586,7 @@ int computeNumberOfBlockRows(int numberOfProcesses) {
   return numberOfRows;
 }
 
-void exchangeLayers_h(
+void exchangeLayers(
   const int    leftNeighborRank,
   double*      o_leftInflow,
   double*      leftOutflow,
