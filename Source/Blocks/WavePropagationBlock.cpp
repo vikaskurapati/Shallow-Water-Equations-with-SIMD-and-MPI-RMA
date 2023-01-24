@@ -30,7 +30,9 @@
 
 #include "WavePropagationBlock.hpp"
 
+#include <algorithm>
 #include <iostream>
+
 #include "Tools/RealType.hpp"
 
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
@@ -48,17 +50,89 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Maximum (linearized) wave speed within one iteration
   RealType maxWaveSpeed = RealType(0.0);
 
-// Compute the net-updates for the vertical edges
-// #ifdef ENABLE_VECTORIZATION
-// #pragma omp declare simd
-// #endif
+  // Compute the net-updates for the vertical edges
+  // #ifdef ENABLE_VECTORIZATION
+  // #pragma omp declare simd
+  // #endif
 
-  #ifdef ENABLE_VECTORIZATION
+#ifdef ENABLE_VECTORIZATION
   for (int i = 1; i < nx_ + 2; i++) {
-    for (int j = 1; j < ny_ + 1; j++) {
+    // for (int j = 1; j < ny_ + 1; j++) {
+    for (int j = 1; j < VectorLength * ((ny_ + 1) / VectorLength) + 1; j += VectorLength) {
 
-      RealType maxEdgeSpeed = RealType(0.0);
+      // RealType maxEdgeSpeed = RealType(0.0);
+      // VectorType maxEdgeSpeed      = set_vector_zero();
 
+      VectorType hleft = load_vector(&h_[i - 1][j]);
+      std::cout << "It has reached here and I dont know how to debug it" << std::endl;
+
+      VectorType hright  = load_vector(&h_[i][j]);
+      VectorType huleft  = load_vector(&hu_[i - 1][j]);
+      VectorType huright = load_vector(&hu_[i][j]);
+      VectorType bleft   = load_vector(&b_[i - 1][j]);
+      VectorType bright  = load_vector(&b_[i][j]);
+      // VectorType hNetUpdatesLeft   = load_vector(&hNetUpdatesLeft_[i - 1][j - 1]);
+      // VectorType hNetUpdatesRight  = load_vector(&hNetUpdatesRight_[i - 1][j - 1]);
+      // VectorType huNetUpdatesLeft  = load_vector(&huNetUpdatesLeft_[i - 1][j - 1]);
+      // VectorType huNetUpdatesRight = load_vector(&huNetUpdatesRight_[i - 1][j - 1]);
+
+      VectorType hNetUpdatesLeft;
+      VectorType hNetUpdatesRight;
+      VectorType huNetUpdatesLeft;
+      VectorType huNetUpdatesRight;
+      VectorType maxEdgeSpeed;
+
+      // wavePropagationSolver_.computeNetUpdates(
+      //   h_[i - 1][j],
+      //   h_[i][j],
+      //   hu_[i - 1][j],
+      //   hu_[i][j],
+      //   b_[i - 1][j],
+      //   b_[i][j],
+      //   hNetUpdatesLeft_[i - 1][j - 1],
+      //   hNetUpdatesRight_[i - 1][j - 1],
+      //   huNetUpdatesLeft_[i - 1][j - 1],
+      //   huNetUpdatesRight_[i - 1][j - 1],
+      //   maxEdgeSpeed
+      // );
+
+      wavePropagationSolver_.computeNetUpdates(
+        hleft,
+        hright,
+        huleft,
+        huright,
+        bleft,
+        bright,
+        hNetUpdatesLeft,
+        hNetUpdatesRight,
+        huNetUpdatesLeft,
+        huNetUpdatesRight,
+        maxEdgeSpeed
+      );
+
+      // wavePropagationSolver_.computeNetUpdates(
+      //   hleft, hright, huleft, huright, bleft, bright
+      //   // hNetUpdatesLeft,
+      //   // hNetUpdatesRight,
+      //   // huNetUpdatesLeft,
+      //   // huNetUpdatesRight,
+      //   // maxEdgeSpeed
+      // );
+
+      store_vector(&hNetUpdatesLeft_[i - 1][j - 1], hNetUpdatesLeft);
+      store_vector(&hNetUpdatesRight_[i - 1][j - 1], hNetUpdatesRight);
+      store_vector(&huNetUpdatesLeft_[i - 1][j - 1], huNetUpdatesLeft);
+      store_vector(&huNetUpdatesRight_[i - 1][j - 1], huNetUpdatesRight);
+
+      VectorType maxVal = maximum_vector(maxEdgeSpeed, maxEdgeSpeed);
+      RealType   maxVal_[VectorLength];
+      store_vector(maxVal_, maxVal);
+      // Update the thread-local maximum wave speed
+      maxWaveSpeed = std::max(maxWaveSpeed, *std::max_element(maxVal_, maxVal_ + VectorLength));
+    }
+
+    for (int j = VectorLength * ((ny_ + 1) / VectorLength) + 1; j < ny_ + 1; j++) {
+      RealType maxEdgeSpeed = static_cast<RealType>(0.0);
       wavePropagationSolver_.computeNetUpdates(
         h_[i - 1][j],
         h_[i][j],
@@ -72,12 +146,10 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
         huNetUpdatesRight_[i - 1][j - 1],
         maxEdgeSpeed
       );
-
-      // Update the thread-local maximum wave speed
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
-  #else
+#else
   for (int i = 1; i < nx_ + 2; i++) {
     for (int j = 1; j < ny_ + 1; ++j) {
       RealType maxEdgeSpeed = RealType(0.0);
@@ -100,7 +172,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
-  #endif
+#endif
 
   // Compute the net-updates for the horizontal edges
   for (int i = 1; i < nx_ + 1; i++) {
