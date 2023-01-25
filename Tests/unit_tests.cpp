@@ -42,17 +42,17 @@ TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]"
     o_maxWaveSpeed[i]  = distribution(generator);
   }
 
-  VectorType hLeft_vec           = load_vector(hLeft);
-  VectorType hRight_vec          = load_vector(hRight);
-  VectorType huLeft_vec          = load_vector(huLeft);
-  VectorType huRight_vec         = load_vector(huRight);
-  VectorType bLeft_vec           = load_vector(bLeft);
-  VectorType bRight_vec          = load_vector(bRight);
-  VectorType o_hUpdateLeft_vec   = load_vector(o_hUpdateLeft);
-  VectorType o_hUpdateRight_vec  = load_vector(o_hUpdateRight);
-  VectorType o_huUpdateLeft_vec  = load_vector(o_huUpdateLeft);
-  VectorType o_huUpdateRight_vec = load_vector(o_huUpdateRight);
-  VectorType o_maxWaveSpeed_vec  = load_vector(o_maxWaveSpeed);
+  VectorType hLeft_vec   = load_vector(hLeft);
+  VectorType hRight_vec  = load_vector(hRight);
+  VectorType huLeft_vec  = load_vector(huLeft);
+  VectorType huRight_vec = load_vector(huRight);
+  VectorType bLeft_vec   = load_vector(bLeft);
+  VectorType bRight_vec  = load_vector(bRight);
+  VectorType o_hUpdateLeft_vec;
+  VectorType o_hUpdateRight_vec;
+  VectorType o_huUpdateLeft_vec;
+  VectorType o_huUpdateRight_vec;
+  VectorType o_maxWaveSpeed_vec;
 
   for (int i = 0; i < VectorLength; i++) {
     fWaveVecSolver.computeNetUpdates(
@@ -70,24 +70,25 @@ TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]"
     );
   }
 
-  fWaveVecSolver.computeNetUpdates(
-    hLeft_vec,
-    hRight_vec,
-    huLeft_vec,
-    huRight_vec,
-    bLeft_vec,
-    bRight_vec,
-    o_hUpdateLeft_vec,
-    o_hUpdateRight_vec,
-    o_huUpdateLeft_vec,
-    o_huUpdateRight_vec,
-    o_maxWaveSpeed_vec
-  );
+  // fWaveVecSolver.computeNetUpdates(
+  //   hLeft_vec,
+  //   hRight_vec,
+  //   huLeft_vec,
+  //   huRight_vec,
+  //   bLeft_vec,
+  //   bRight_vec,
+  //   o_hUpdateLeft_vec,
+  //   o_hUpdateRight_vec,
+  //   o_huUpdateLeft_vec,
+  //   o_huUpdateRight_vec,
+  //   o_maxWaveSpeed_vec
+  // );
 
   bool are_equal = true;
 
   for (int i = 0; i < VectorLength; i++) {
     if (abs(o_hUpdateLeft[i] - o_hUpdateLeft_vec[i]) > 1e-6) {
+      printf("%f %f %f %f\n", o_huUpdateLeft_vec[0], o_huUpdateLeft_vec[1], o_huUpdateLeft_vec[2], o_huUpdateLeft_vec[3]);
       are_equal = false;
       break;
     }

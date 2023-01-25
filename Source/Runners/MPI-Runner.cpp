@@ -355,6 +355,7 @@ int main(int argc, char** argv) {
       waveBlock->setGhostLayer();
 
       // Compute numerical flux on each edge
+
       waveBlock->computeNumericalFluxes();
 
       // Approximate the maximum time step

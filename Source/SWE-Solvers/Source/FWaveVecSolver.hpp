@@ -44,11 +44,19 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdio>
 #include <immintrin.h>
 #include <iostream>
 
 #include "Tools/RealType.hpp"
+
+// void print_mm256d(__m256d vec) {
+//   double* v = (double*) &vec;
+//   printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
+// }
 
 namespace Solvers {
 
@@ -189,22 +197,43 @@ namespace Solvers {
       // 54 FLOPs (3 sqrt, 4 div, 2 abs, 3 min/max)
     }
 
-    void computeNetUpdates(
-      VectorType  hLeft,
-      VectorType  hRight,
-      VectorType  huLeft,
-      VectorType  huRight,
-      VectorType  bLeft,
-      VectorType  bRight,
-      VectorType& o_hUpdateLeft,
-      VectorType& o_hUpdateRight,
-      VectorType& o_huUpdateLeft,
-      VectorType& o_huUpdateRight,
-      VectorType& o_maxWaveSpeed
-    ) const {
+    void computeNetUpdates_SIMD(
+      // VectorType hLeft, VectorType hRight, VectorType huLeft, VectorType huRight, VectorType bLeft, VectorType bRight
+      // VectorType& o_hUpdateLeft
+      // VectorType& o_hUpdateRight,
+      // VectorType& o_huUpdateLeft,
+      // VectorType& o_huUpdateRight,
+      // VectorType& o_maxWaveSpeed
+      const RealType* const i_hLeft,
+      const RealType* const i_hRight,
+      const RealType* const i_huLeft,
+      const RealType* const i_huRight,
+      const RealType* const i_bLeft,
+      const RealType* const i_bRight,
+
+      RealType* o_hUpdateLeft,
+      RealType* o_hUpdateRight,
+      RealType* o_huUpdateLeft,
+      RealType* o_huUpdateRight,
+      RealType& o_maxWaveSpeed
+    ) {
+      VectorType hLeft   = load_vector(i_hLeft);
+      VectorType hRight  = load_vector(i_hRight);
+      VectorType huLeft  = load_vector(i_huLeft);
+      VectorType huRight = load_vector(i_huRight);
+      VectorType bLeft   = load_vector(i_bLeft);
+      VectorType bRight  = load_vector(i_bRight);
       VectorType dryTol_vec = set_vector(dryTol_);
+
+
+      /// Unable to print stuff from here
       VectorType cmp1       = compare_vector(hLeft, dryTol_vec, _CMP_GE_OQ);
       VectorType cmp2       = compare_vector(hRight, dryTol_vec, _CMP_LT_OQ);
+
+      // std::cout << "Mom come pick me up. I am scared. I am at add, line 294" << std::endl;
+
+      // double* v = (double*)&cmp1;
+      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
       VectorType mask1      = bitwise_and(cmp1, cmp2);
 
       VectorType cmp3  = compare_vector(hRight, dryTol_vec, _CMP_GE_OQ);
@@ -244,42 +273,62 @@ namespace Solvers {
         hLeft, hRight, huLeft, huRight, uLeft, uRight, bLeft, bRight, waveSpeeds0, waveSpeeds1, fWaves0, fWaves1
       );
 
-      o_hUpdateLeft   = set_vector_zero();
-      o_hUpdateRight  = set_vector_zero();
-      o_huUpdateLeft  = set_vector_zero();
-      o_huUpdateRight = set_vector_zero();
+      VectorType o_hUpdateLeft_vec = set_vector_zero();
+
+      // o_hUpdateLeft = set_vector_zero();
+
+      VectorType o_hUpdateRight_vec  = set_vector_zero();
+      VectorType o_huUpdateLeft_vec  = set_vector_zero();
+      VectorType o_huUpdateRight_vec = set_vector_zero();
 
       VectorType zeroTol_vec = set_vector(zeroTol_);
 
       VectorType mask4 = compare_vector(waveSpeeds0, mul_vector(zeroTol_vec, set_vector(-1.0)), _CMP_LT_OQ);
+      // double*    v     = (double*)&mask4;
+
+      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
+
+      // std::cout << "I dont know what is happening. Help me debug this please" << std::endl;
+
       VectorType mask5 = compare_vector(waveSpeeds0, zeroTol_vec, _CMP_GT_OQ);
 
       VectorType cmp6  = compare_vector(waveSpeeds0, mul_vector(zeroTol_vec, set_vector(-1.0)), _CMP_GE_OQ);
       VectorType cmp7  = compare_vector(waveSpeeds0, zeroTol_vec, _CMP_LE_OQ);
       VectorType mask6 = bitwise_and(cmp6, cmp7);
 
-      o_hUpdateLeft  = blend_vector(o_hUpdateLeft, add_vector(o_hUpdateLeft, fWaves0), mask4);
-      o_huUpdateLeft = blend_vector(
-        o_huUpdateLeft, add_vector(o_huUpdateLeft, mul_vector(fWaves0, waveSpeeds0)), mask4
+      VectorType temp1 = add_vector(o_hUpdateLeft_vec, fWaves0);
+
+      // std::cout << "Mom come pick me up. I am scared. I am at mask4, line 299" << std::endl;
+
+      // v = (double*)&mask4;
+      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
+
+      o_hUpdateLeft_vec = blend_vector(o_hUpdateLeft_vec, temp1, mask4);
+
+      o_huUpdateLeft_vec = blend_vector(
+        o_huUpdateLeft_vec, add_vector(o_huUpdateLeft_vec, mul_vector(fWaves0, waveSpeeds0)), mask4
       );
 
-      o_hUpdateRight  = blend_vector(o_hUpdateRight, add_vector(o_hUpdateRight, fWaves0), mask5);
-      o_huUpdateRight = blend_vector(
-        o_huUpdateRight, add_vector(o_huUpdateRight, mul_vector(fWaves0, waveSpeeds0)), mask5
+      o_hUpdateRight_vec  = blend_vector(o_hUpdateRight_vec, add_vector(o_hUpdateRight_vec, fWaves0), mask5);
+      o_huUpdateRight_vec = blend_vector(
+        o_huUpdateRight_vec, add_vector(o_huUpdateRight_vec, mul_vector(fWaves0, waveSpeeds0)), mask5
       );
 
-      o_hUpdateLeft = blend_vector(
-        o_hUpdateLeft, add_vector(o_hUpdateLeft, mul_vector(set_vector(0.5), fWaves0)), mask6
+      o_hUpdateLeft_vec = blend_vector(
+        o_hUpdateLeft_vec, add_vector(o_hUpdateLeft_vec, mul_vector(set_vector(0.5), fWaves0)), mask6
       );
-      o_huUpdateLeft = blend_vector(
-        o_huUpdateLeft, add_vector(o_huUpdateLeft, mul_vector(set_vector(0.5), mul_vector(fWaves0, waveSpeeds0))), mask6
+      // print_mm256d(o_hUpdateLeft);
+      o_huUpdateLeft_vec = blend_vector(
+        o_huUpdateLeft_vec,
+        add_vector(o_huUpdateLeft_vec, mul_vector(set_vector(0.5), mul_vector(fWaves0, waveSpeeds0))),
+        mask6
       );
-      o_hUpdateRight = blend_vector(
-        o_hUpdateRight, add_vector(o_hUpdateRight, mul_vector(set_vector(0.5), fWaves0)), mask6
+      o_hUpdateRight_vec = blend_vector(
+        o_hUpdateRight_vec, add_vector(o_hUpdateRight_vec, mul_vector(set_vector(0.5), fWaves0)), mask6
       );
-      o_huUpdateRight = blend_vector(
-        o_huUpdateRight,
-        add_vector(o_huUpdateRight, mul_vector(set_vector(0.5), mul_vector(fWaves0, waveSpeeds0))),
+      o_huUpdateRight_vec = blend_vector(
+        o_huUpdateRight_vec,
+        add_vector(o_huUpdateRight_vec, mul_vector(set_vector(0.5), mul_vector(fWaves0, waveSpeeds0))),
         mask6
       );
 
@@ -290,36 +339,50 @@ namespace Solvers {
       VectorType cmp9  = compare_vector(waveSpeeds1, zeroTol_vec, _CMP_LE_OQ);
       VectorType mask9 = bitwise_and(cmp8, cmp9);
 
-      o_hUpdateLeft  = blend_vector(o_hUpdateLeft, add_vector(o_hUpdateLeft, fWaves1), mask7);
-      o_huUpdateLeft = blend_vector(
-        o_huUpdateLeft, add_vector(o_huUpdateLeft, mul_vector(fWaves1, waveSpeeds1)), mask7
+      o_hUpdateLeft_vec  = blend_vector(o_hUpdateLeft_vec, add_vector(o_hUpdateLeft_vec, fWaves1), mask7);
+      o_huUpdateLeft_vec = blend_vector(
+        o_huUpdateLeft_vec, add_vector(o_huUpdateLeft_vec, mul_vector(fWaves1, waveSpeeds1)), mask7
       );
 
-      o_hUpdateRight  = blend_vector(o_hUpdateRight, add_vector(o_hUpdateRight, fWaves1), mask8);
-      o_huUpdateRight = blend_vector(
-        o_huUpdateRight, add_vector(o_huUpdateRight, mul_vector(fWaves1, waveSpeeds1)), mask8
+      o_hUpdateRight_vec  = blend_vector(o_hUpdateRight_vec, add_vector(o_hUpdateRight_vec, fWaves1), mask8);
+      o_huUpdateRight_vec = blend_vector(
+        o_huUpdateRight_vec, add_vector(o_huUpdateRight_vec, mul_vector(fWaves1, waveSpeeds1)), mask8
       );
 
-      o_hUpdateLeft = blend_vector(
-        o_hUpdateLeft, add_vector(o_hUpdateLeft, mul_vector(set_vector(0.5), fWaves1)), mask9
+      o_hUpdateLeft_vec = blend_vector(
+        o_hUpdateLeft_vec, add_vector(o_hUpdateLeft_vec, mul_vector(set_vector(0.5), fWaves1)), mask9
       );
-      o_huUpdateLeft = blend_vector(
-        o_huUpdateLeft, add_vector(o_huUpdateLeft, mul_vector(set_vector(0.5), mul_vector(fWaves1, waveSpeeds1))), mask9
+      o_huUpdateLeft_vec = blend_vector(
+        o_huUpdateLeft_vec,
+        add_vector(o_huUpdateLeft_vec, mul_vector(set_vector(0.5), mul_vector(fWaves1, waveSpeeds1))),
+        mask9
       );
-      o_hUpdateRight = blend_vector(
-        o_hUpdateRight, add_vector(o_hUpdateRight, mul_vector(set_vector(0.5), fWaves1)), mask9
+      o_hUpdateRight_vec = blend_vector(
+        o_hUpdateRight_vec, add_vector(o_hUpdateRight_vec, mul_vector(set_vector(0.5), fWaves1)), mask9
       );
-      o_huUpdateRight = blend_vector(
-        o_huUpdateRight,
-        add_vector(o_huUpdateRight, mul_vector(set_vector(0.5), mul_vector(fWaves1, waveSpeeds1))),
+      o_huUpdateRight_vec = blend_vector(
+        o_huUpdateRight_vec,
+        add_vector(o_huUpdateRight_vec, mul_vector(set_vector(0.5), mul_vector(fWaves1, waveSpeeds1))),
         mask9
       );
 
       VectorType absWaveSpeeds0 = max_vector(waveSpeeds0, mul_vector(waveSpeeds0, set_vector(-1.0)));
       VectorType absWaveSpeeds1 = max_vector(waveSpeeds1, mul_vector(waveSpeeds1, set_vector(-1.0)));
 
-      o_maxWaveSpeed = max_vector(absWaveSpeeds0, absWaveSpeeds1);
+      VectorType o_maxWaveSpeed_vec = max_vector(absWaveSpeeds0, absWaveSpeeds1);
 
+      // for (size_t i = 0; i < VectorLength; i++) {
+      // std::cout << o_hUpdateLeft_vec[i] << std::endl;
+      // }
+
+      store_vector(o_hUpdateLeft, o_hUpdateLeft_vec);
+      store_vector(o_hUpdateRight, o_hUpdateRight_vec);
+      store_vector(o_huUpdateLeft, o_huUpdateLeft_vec);
+      store_vector(o_huUpdateRight, o_huUpdateRight_vec);
+
+      for (size_t i = 0; i < VectorLength; ++i) {
+        o_maxWaveSpeed = std::max(o_maxWaveSpeed, o_maxWaveSpeed_vec[i]);
+      }
     }
 
 #ifdef ENABLE_VECTORIZATION
