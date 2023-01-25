@@ -138,11 +138,6 @@ namespace Solvers {
       T waveSpeeds0 = T(0.0);
       T waveSpeeds1 = T(0.0);
 
-      // std::cout
-      //   << hLeft << " ; " << hRight << " ; " << huLeft << " ; " << huRight << " ; " << uLeft << " ; " << uRight << "
-      //   ; "
-      //   << bLeft << " ; " << bRight << std::endl;
-
       fWaveComputeWaveSpeeds(
         hLeft, hRight, huLeft, huRight, uLeft, uRight, bLeft, bRight, waveSpeeds0, waveSpeeds1
       ); // 20 FLOPs (incl. 3 sqrt, 1 div, 2 min/max)
@@ -198,12 +193,6 @@ namespace Solvers {
     }
 
     void computeNetUpdates_SIMD(
-      // VectorType hLeft, VectorType hRight, VectorType huLeft, VectorType huRight, VectorType bLeft, VectorType bRight
-      // VectorType& o_hUpdateLeft
-      // VectorType& o_hUpdateRight,
-      // VectorType& o_huUpdateLeft,
-      // VectorType& o_huUpdateRight,
-      // VectorType& o_maxWaveSpeed
       const RealType* const i_hLeft,
       const RealType* const i_hRight,
       const RealType* const i_huLeft,
@@ -217,24 +206,17 @@ namespace Solvers {
       RealType* o_huUpdateRight,
       RealType& o_maxWaveSpeed
     ) {
-      VectorType hLeft   = load_vector(i_hLeft);
-      VectorType hRight  = load_vector(i_hRight);
-      VectorType huLeft  = load_vector(i_huLeft);
-      VectorType huRight = load_vector(i_huRight);
-      VectorType bLeft   = load_vector(i_bLeft);
-      VectorType bRight  = load_vector(i_bRight);
+      VectorType hLeft      = load_vector(i_hLeft);
+      VectorType hRight     = load_vector(i_hRight);
+      VectorType huLeft     = load_vector(i_huLeft);
+      VectorType huRight    = load_vector(i_huRight);
+      VectorType bLeft      = load_vector(i_bLeft);
+      VectorType bRight     = load_vector(i_bRight);
       VectorType dryTol_vec = set_vector(dryTol_);
 
-
-      /// Unable to print stuff from here
-      VectorType cmp1       = compare_vector(hLeft, dryTol_vec, _CMP_GE_OQ);
-      VectorType cmp2       = compare_vector(hRight, dryTol_vec, _CMP_LT_OQ);
-
-      // std::cout << "Mom come pick me up. I am scared. I am at add, line 294" << std::endl;
-
-      // double* v = (double*)&cmp1;
-      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
-      VectorType mask1      = bitwise_and(cmp1, cmp2);
+      VectorType cmp1  = compare_vector(hLeft, dryTol_vec, _CMP_GE_OQ);
+      VectorType cmp2  = compare_vector(hRight, dryTol_vec, _CMP_LT_OQ);
+      VectorType mask1 = bitwise_and(cmp1, cmp2);
 
       VectorType cmp3  = compare_vector(hRight, dryTol_vec, _CMP_GE_OQ);
       VectorType cmp4  = compare_vector(hLeft, dryTol_vec, _CMP_LT_OQ);
@@ -275,8 +257,6 @@ namespace Solvers {
 
       VectorType o_hUpdateLeft_vec = set_vector_zero();
 
-      // o_hUpdateLeft = set_vector_zero();
-
       VectorType o_hUpdateRight_vec  = set_vector_zero();
       VectorType o_huUpdateLeft_vec  = set_vector_zero();
       VectorType o_huUpdateRight_vec = set_vector_zero();
@@ -284,12 +264,6 @@ namespace Solvers {
       VectorType zeroTol_vec = set_vector(zeroTol_);
 
       VectorType mask4 = compare_vector(waveSpeeds0, mul_vector(zeroTol_vec, set_vector(-1.0)), _CMP_LT_OQ);
-      // double*    v     = (double*)&mask4;
-
-      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
-
-      // std::cout << "I dont know what is happening. Help me debug this please" << std::endl;
-
       VectorType mask5 = compare_vector(waveSpeeds0, zeroTol_vec, _CMP_GT_OQ);
 
       VectorType cmp6  = compare_vector(waveSpeeds0, mul_vector(zeroTol_vec, set_vector(-1.0)), _CMP_GE_OQ);
@@ -297,11 +271,6 @@ namespace Solvers {
       VectorType mask6 = bitwise_and(cmp6, cmp7);
 
       VectorType temp1 = add_vector(o_hUpdateLeft_vec, fWaves0);
-
-      // std::cout << "Mom come pick me up. I am scared. I am at mask4, line 299" << std::endl;
-
-      // v = (double*)&mask4;
-      // printf("%f %f %f %f\n", v[0], v[1], v[2], v[3]);
 
       o_hUpdateLeft_vec = blend_vector(o_hUpdateLeft_vec, temp1, mask4);
 
@@ -317,7 +286,6 @@ namespace Solvers {
       o_hUpdateLeft_vec = blend_vector(
         o_hUpdateLeft_vec, add_vector(o_hUpdateLeft_vec, mul_vector(set_vector(0.5), fWaves0)), mask6
       );
-      // print_mm256d(o_hUpdateLeft);
       o_huUpdateLeft_vec = blend_vector(
         o_huUpdateLeft_vec,
         add_vector(o_huUpdateLeft_vec, mul_vector(set_vector(0.5), mul_vector(fWaves0, waveSpeeds0))),
@@ -370,10 +338,6 @@ namespace Solvers {
       VectorType absWaveSpeeds1 = max_vector(waveSpeeds1, mul_vector(waveSpeeds1, set_vector(-1.0)));
 
       VectorType o_maxWaveSpeed_vec = max_vector(absWaveSpeeds0, absWaveSpeeds1);
-
-      // for (size_t i = 0; i < VectorLength; i++) {
-      // std::cout << o_hUpdateLeft_vec[i] << std::endl;
-      // }
 
       store_vector(o_hUpdateLeft, o_hUpdateLeft_vec);
       store_vector(o_hUpdateRight, o_hUpdateRight_vec);
@@ -514,12 +478,8 @@ namespace Solvers {
     ) const {
       // Calculate modified (bathymetry) flux difference
       // f(Q_i) - f(Q_{i-1}) -> serve as right hand sides
-      // T fDif0 = huRight - huLeft; // 1 FLOP
 
       VectorType fDif0 = sub_vector(huRight, huLeft);
-
-      // T fDif1 = huRight * uRight + halfGravity_ * hRight * hRight
-      //           - (huLeft * uLeft + halfGravity_ * hLeft * hLeft); // 9 FLOPs
 
       VectorType grav = set_vector(halfGravity_);
 
@@ -527,9 +487,6 @@ namespace Solvers {
         add_vector(mul_vector(huRight, uRight), mul_vector(grav, mul_vector(hRight, hRight))),
         add_vector(mul_vector(huLeft, uLeft), mul_vector(grav, mul_vector(hLeft, hLeft)))
       );
-
-      // \delta x \Psi[2]
-      // fDif1 += halfGravity_ * (hRight + hLeft) * (bRight - bLeft); // 5 FLOPs
 
       fDif1 = add_vector(fDif1, mul_vector(grav, mul_vector(add_vector(hRight, hLeft), sub_vector(bRight, bLeft))));
 
@@ -540,12 +497,6 @@ namespace Solvers {
       // Compute the inverse of the wave speed difference:
 
       VectorType inverseSpeedDiff = div_vector(set_vector(1.0), sub_vector(waveSpeed1, waveSpeed0));
-
-      // T inverseSpeedDiff = T(1.0) / (waveSpeed1 - waveSpeed0); // 2 FLOPs (1 div)
-      // Compute f-waves:
-      // o_fWave0 = (waveSpeed1 * fDif0 - fDif1) * inverseSpeedDiff;  // 3 FLOPs
-      // o_fWave1 = (-waveSpeed0 * fDif0 + fDif1) * inverseSpeedDiff; // 3 FLOPs
-
       o_fWave0 = mul_vector(sub_vector(mul_vector(waveSpeed1, fDif0), fDif1), inverseSpeedDiff);
       o_fWave1 = mul_vector(sub_vector(fDif1, mul_vector(waveSpeed0, fDif0)), inverseSpeedDiff);
 
