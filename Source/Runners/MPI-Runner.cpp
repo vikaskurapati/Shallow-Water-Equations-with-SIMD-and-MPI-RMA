@@ -606,5 +606,3 @@ void exchangeLayers_h(
   MPI_Win_fence(0, leftWin);
   MPI_Win_free(&leftWin);
 }
-
-
