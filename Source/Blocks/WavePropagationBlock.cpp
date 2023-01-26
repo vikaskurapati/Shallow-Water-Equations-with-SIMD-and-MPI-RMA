@@ -30,7 +30,10 @@
 
 #include "WavePropagationBlock.hpp"
 
+#include <cstddef>
 #include <iostream>
+
+#include "Tools/RealType.hpp"
 
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
   Block(nx, ny, dx, dy),
@@ -49,7 +52,39 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 
   // Compute the net-updates for the vertical edges
   for (int i = 1; i < nx_ + 2; i++) {
-    for (int j = 1; j < ny_ + 1; ++j) {
+    for (int j = 1; j < VectorLength * ((ny_ + 1) / VectorLength); j += VectorLength) {
+      RealType maxEdgeSpeed = RealType(0.0);
+      RealType hNetUpdatesLeft[VectorLength];
+      RealType hNetUpdatesRight[VectorLength];
+      RealType huNetUpdatesLeft[VectorLength];
+      RealType huNetUpdatesRight[VectorLength];
+
+      wavePropagationSolver_.computeNetUpdates_SIMD(
+        &h_[i - 1][j],
+        &h_[i][j],
+        &hu_[i - 1][j],
+        &hu_[i][j],
+        &b_[i - 1][j],
+        &b_[i][j],
+        hNetUpdatesLeft,
+        hNetUpdatesRight,
+        huNetUpdatesLeft,
+        huNetUpdatesRight,
+        maxEdgeSpeed
+      );
+
+      for (size_t k = 0; k < VectorLength; k++) {
+        hNetUpdatesLeft_[i - 1][j - 1 + k]   = hNetUpdatesLeft[k];
+        hNetUpdatesRight_[i - 1][j - 1 + k]  = hNetUpdatesRight[k];
+        huNetUpdatesLeft_[i - 1][j - 1 + k]  = huNetUpdatesLeft[k];
+        huNetUpdatesRight_[i - 1][j - 1 + k] = huNetUpdatesRight[k];
+      }
+
+      // Update the thread-local maximum wave speed
+      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+    }
+
+    for (int j = VectorLength * ((ny_ + 1) / VectorLength); j < ny_ + 1; j += VectorLength) {
       RealType maxEdgeSpeed = RealType(0.0);
 
       wavePropagationSolver_.computeNetUpdates(
@@ -73,9 +108,42 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 
   // Compute the net-updates for the horizontal edges
   for (int i = 1; i < nx_ + 1; i++) {
-    for (int j = 1; j < ny_ + 2; j++) {
-      RealType maxEdgeSpeed = RealType(0.0);
+    for (int j = 1; j < VectorLength * ((ny_ + 2) / VectorLength); j += VectorLength) {
 
+      RealType maxEdgeSpeed = RealType(0.0);
+      RealType hNetUpdatesBelow[VectorLength];
+      RealType hNetUpdatesAbove[VectorLength];
+      RealType hvNetUpdatesBelow[VectorLength];
+      RealType hvNetUpdatesAbove[VectorLength];
+
+      wavePropagationSolver_.computeNetUpdates_SIMD(
+        &h_[i][j - 1],
+        &h_[i][j],
+        &hv_[i][j - 1],
+        &hv_[i][j],
+        &b_[i][j - 1],
+        &b_[i][j],
+        hNetUpdatesBelow,
+        hNetUpdatesAbove,
+        hvNetUpdatesBelow,
+        hvNetUpdatesAbove,
+        maxEdgeSpeed
+      );
+
+      for (size_t k = 0; k < VectorLength; k++) {
+        hNetUpdatesBelow_[i - 1][j - 1 + k]  = hNetUpdatesBelow[k];
+        hNetUpdatesAbove_[i - 1][j - 1 + k]  = hNetUpdatesAbove[k];
+        hvNetUpdatesBelow_[i - 1][j - 1 + k] = hvNetUpdatesBelow[k];
+        hvNetUpdatesAbove_[i - 1][j - 1 + k] = hvNetUpdatesAbove[k];
+      }
+
+      // Update the thread-local maximum wave speed
+      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+    }
+
+    for (int j = VectorLength * ((ny_ + 1) / VectorLength); j < ny_ + 1; j += VectorLength) {
+      RealType maxEdgeSpeed = 0.0;
+      
       wavePropagationSolver_.computeNetUpdates(
         h_[i][j - 1],
         h_[i][j],

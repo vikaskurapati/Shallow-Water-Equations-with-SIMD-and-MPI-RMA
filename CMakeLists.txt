@@ -25,13 +25,13 @@ else()
     set(GIT_COMMIT_HASH_SHORT "")
 endif()
 
-set(META_PROJECT_NAME        "SWE")
+set(META_PROJECT_NAME "SWE")
 set(META_PROJECT_DESCRIPTION "An Education-Oriented Code for Parallel Tsunami Simulation")
 set(META_AUTHOR_ORGANIZATION "Chair of Scientific Computing, Department of Informatics, Technische Universitaet Muenchen")
-set(META_AUTHOR_DOMAIN       "http://www5.in.tum.de/SWE")
-set(META_VERSION_REVISION    "${GIT_COMMIT_HASH_SHORT}")
-set(META_GIT_BRANCH          "${GIT_BRANCH}")
-set(META_GIT_HASH            "${GIT_COMMIT_HASH}")
+set(META_AUTHOR_DOMAIN "http://www5.in.tum.de/SWE")
+set(META_VERSION_REVISION "${GIT_COMMIT_HASH_SHORT}")
+set(META_GIT_BRANCH "${GIT_BRANCH}")
+set(META_GIT_HASH "${GIT_COMMIT_HASH}")
 message(STATUS "On Git Branch: ${GIT_BRANCH} (${GIT_COMMIT_HASH})")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -58,9 +58,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(_project_options)
 
 project(${META_PROJECT_NAME}
-        DESCRIPTION ${META_PROJECT_DESCRIPTION}
-        HOMEPAGE_URL ${META_AUTHOR_DOMAIN}
-        LANGUAGES C CXX
+    DESCRIPTION ${META_PROJECT_DESCRIPTION}
+    HOMEPAGE_URL ${META_AUTHOR_DOMAIN}
+    LANGUAGES C CXX
 )
 file(WRITE "${PROJECT_BINARY_DIR}/.gitignore" "*")
 
@@ -73,6 +73,10 @@ set(DEFAULT_CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+
+if(ENABLE_VECTORIZATION)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=core-avx2")
+endif()
 
 add_subdirectory(CMake)
 include(MessageUtils)
