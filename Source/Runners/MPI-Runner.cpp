@@ -65,24 +65,17 @@ void fpExceptionHandler(const int signal, const int nSubCode);
  * @param numberOfProcesses number of processes
  * @return number of block rows
  */
-int  computeNumberOfBlockRows(int numberOfProcesses);
-void exchangeLeftRightGhostLayers(
-  const int              leftNeighborRank,
-  Blocks::Block1D*       o_leftInflow,
-  const Blocks::Block1D* leftOutflow,
-  const int              rightNeighborRank,
-  Blocks::Block1D*       o_rightInflow,
-  const Blocks::Block1D* rightOutflow,
-  MPI_Datatype           mpiCol
-);
-void exchangeBottomTopGhostLayers(
-  const int              bottomNeighborRank,
-  Blocks::Block1D*       o_bottomNeighborInflow,
-  const Blocks::Block1D* bottomNeighborOutflow,
-  const int              topNeighborRank,
-  Blocks::Block1D*       o_topNeighborInflow,
-  const Blocks::Block1D* topNeighborOutflow,
-  MPI_Datatype           mpiRow
+int computeNumberOfBlockRows(int numberOfProcesses);
+
+void exchangeLayers(
+  const int    leftNeighborRank,
+  double*      o_leftInflow,
+  double*      leftOutflow,
+  const int    rightNeighborRank,
+  double*      o_rightInflow,
+  double*      rightOutflow,
+  MPI_Datatype mpiCol,
+  int          len
 );
 
 int main(int argc, char** argv) {
@@ -136,6 +129,7 @@ int main(int argc, char** argv) {
   default:
     break;
   }
+  int mpirow_len, mpicol_len, col_disp, row_disp;
 
   int         numberOfGridCellsX  = args.getArgument<int>("grid-size-x", 16);
   int         numberOfGridCellsY  = args.getArgument<int>("grid-size-y", 16);
@@ -148,11 +142,14 @@ int main(int argc, char** argv) {
   Tools::Logger::logger.printNumberOfCells(numberOfGridCellsX, numberOfGridCellsY);
 
   // Determine the layout of MPI-ranks: use numberOfBlocksY*numberOfBlocksX grid blocks
+
   int numberOfBlocksY = computeNumberOfBlockRows(numberOfProcesses);
+
   int numberOfBlocksX = numberOfProcesses / numberOfBlocksY;
   Tools::Logger::logger.printNumberOfBlocks(numberOfBlocksX, numberOfBlocksY);
 
   // Determine local block coordinates of each block
+
   int blockPositionX = mpiRank / numberOfBlocksY;
   int blockPositionY = mpiRank % numberOfBlocksY;
 
@@ -266,15 +263,18 @@ int main(int argc, char** argv) {
 #ifndef ENABLE_CUDA
   MPI_Type_vector(nXLocal + 2, 1, nYLocal + 2, MY_MPI_FLOAT, &mpiRow);
 #else
-  MPI_Type_vector(1, nXLocal + 2, 1, MY_MPI_FLOAT, &mpiRow);
+  MPI_Type_vector(nXLocal + 2, 1, nYLocal + 2, MY_MPI_FLOAT, &mpiRow);
 #endif
   MPI_Type_commit(&mpiRow);
-
+  mpirow_len = (nXLocal + 2) * 1 + (nYLocal + 2) * (nXLocal + 2 - 1);
+  row_disp   = nYLocal + 2;
   //! MPI column-vector: 1 block, nYLocal+2 elements per block, stride of 1
+  // std::cout<<"\nVector"<<nYLocal+2<<" " <<std::endl;
   MPI_Datatype mpiCol;
   MPI_Type_vector(1, nYLocal + 2, 1, MY_MPI_FLOAT, &mpiCol);
   MPI_Type_commit(&mpiCol);
-
+  mpicol_len = 1 * (nYLocal + 2);
+  col_disp   = 1;
   // Compute MPI ranks of the neighbour processes
   int leftNeighborRank   = (blockPositionX > 0) ? mpiRank - numberOfBlocksY : MPI_PROC_NULL;
   int rightNeighborRank  = (blockPositionX < numberOfBlocksX - 1) ? mpiRank + numberOfBlocksY : MPI_PROC_NULL;
@@ -286,13 +286,73 @@ int main(int argc, char** argv) {
     << "Neighbors: " << leftNeighborRank << " (left), " << rightNeighborRank << " (right), " << bottomNeighborRank
     << " (bottom), " << topNeighborRank << " (top)" << std::endl;
 
-  // Intially exchange ghost and copy layers
-  exchangeLeftRightGhostLayers(
-    leftNeighborRank, leftInflow, leftOutflow, rightNeighborRank, rightInflow, rightOutflow, mpiCol
+  exchangeLayers(
+    leftNeighborRank,
+    leftInflow->h.getData(),
+    leftOutflow->h.getData(),
+    rightNeighborRank,
+    rightInflow->h.getData(),
+    rightOutflow->h.getData(),
+    mpiCol,
+    mpicol_len
   );
 
-  exchangeBottomTopGhostLayers(
-    bottomNeighborRank, bottomInflow, bottomOutflow, topNeighborRank, topInflow, topOutflow, mpiRow
+  exchangeLayers(
+    topNeighborRank,
+    topInflow->h.getData(),
+    topOutflow->h.getData(),
+    bottomNeighborRank,
+    bottomInflow->h.getData(),
+    bottomOutflow->h.getData(),
+    mpiRow,
+    mpirow_len
+  );
+
+  if (mpiRank == 0) {
+    for (int i = 0; i < nYLocal + 2; i++) {
+      // std::cout << "\nAFTER b[" << i << "] = " << *(rightInflow->h.getData() + i) << std::endl;
+    }
+  }
+  exchangeLayers(
+    leftNeighborRank,
+    leftInflow->hu.getData(),
+    leftOutflow->hu.getData(),
+    rightNeighborRank,
+    rightInflow->hu.getData(),
+    rightOutflow->hu.getData(),
+    mpiCol,
+    mpicol_len
+  );
+  exchangeLayers(
+    topNeighborRank,
+    topInflow->hu.getData(),
+    topOutflow->hu.getData(),
+    bottomNeighborRank,
+    bottomInflow->hu.getData(),
+    bottomOutflow->hu.getData(),
+    mpiRow,
+    mpirow_len
+  );
+
+  exchangeLayers(
+    leftNeighborRank,
+    leftInflow->hv.getData(),
+    leftOutflow->hv.getData(),
+    rightNeighborRank,
+    rightInflow->hv.getData(),
+    rightOutflow->hv.getData(),
+    mpiCol,
+    mpicol_len
+  );
+  exchangeLayers(
+    topNeighborRank,
+    topInflow->hv.getData(),
+    topOutflow->hv.getData(),
+    bottomNeighborRank,
+    bottomInflow->hv.getData(),
+    bottomOutflow->hv.getData(),
+    mpiRow,
+    mpirow_len
   );
 
   Tools::ProgressBar progressBar(endSimulationTime, mpiRank);
@@ -338,28 +398,82 @@ int main(int argc, char** argv) {
     while (simulationTime < checkPoints[cp]) {
       // Reset CPU-Communication clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU-Communication");
-
-      // Exchange ghost and copy layers
-      exchangeLeftRightGhostLayers(
-        leftNeighborRank, leftInflow, leftOutflow, rightNeighborRank, rightInflow, rightOutflow, mpiCol
+      
+      exchangeLayers(
+        leftNeighborRank,
+        leftInflow->h.getData(),
+        leftOutflow->h.getData(),
+        rightNeighborRank,
+        rightInflow->h.getData(),
+        rightOutflow->h.getData(),
+        mpiCol,
+        mpicol_len
       );
 
-      exchangeBottomTopGhostLayers(
-        bottomNeighborRank, bottomInflow, bottomOutflow, topNeighborRank, topInflow, topOutflow, mpiRow
+      exchangeLayers(
+        topNeighborRank,
+        topInflow->h.getData(),
+        topOutflow->h.getData(),
+        bottomNeighborRank,
+        bottomInflow->h.getData(),
+        bottomOutflow->h.getData(),
+        mpiRow,
+        mpirow_len
       );
 
+      exchangeLayers(
+        leftNeighborRank,
+        leftInflow->hu.getData(),
+        leftOutflow->hu.getData(),
+        rightNeighborRank,
+        rightInflow->hu.getData(),
+        rightOutflow->hu.getData(),
+        mpiCol,
+        mpicol_len
+      );
+      exchangeLayers(
+        topNeighborRank,
+        topInflow->hu.getData(),
+        topOutflow->hu.getData(),
+        bottomNeighborRank,
+        bottomInflow->hu.getData(),
+        bottomOutflow->hu.getData(),
+        mpiRow,
+        mpirow_len
+      );
+      exchangeLayers(
+        leftNeighborRank,
+        leftInflow->hv.getData(),
+        leftOutflow->hv.getData(),
+        rightNeighborRank,
+        rightInflow->hv.getData(),
+        rightOutflow->hv.getData(),
+        mpiCol,
+        mpicol_len
+      );
+      exchangeLayers(
+        topNeighborRank,
+        topInflow->hv.getData(),
+        topOutflow->hv.getData(),
+        bottomNeighborRank,
+        bottomInflow->hv.getData(),
+        bottomOutflow->hv.getData(),
+        mpiRow,
+        mpirow_len
+      );
       // Reset the cpu clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU");
 
       // Set values in ghost cells
       waveBlock->setGhostLayer();
+      
+      //  Compute numerical flux on each edge
 
-      // Compute numerical flux on each edge
-
+      
       waveBlock->computeNumericalFluxes();
-
-      // Approximate the maximum time step
-      // waveBlock->computeMaxTimeStep();
+      
+      //  Approximate the maximum time step
+      //  waveBlock->computeMaxTimeStep();
 
       RealType maxTimeStepWidth = waveBlock->getMaxTimeStep();
 
@@ -458,210 +572,38 @@ int computeNumberOfBlockRows(int numberOfProcesses) {
   return numberOfRows;
 }
 
-void exchangeLeftRightGhostLayers(
-  const int              leftNeighborRank,
-  Blocks::Block1D*       o_leftInflow,
-  const Blocks::Block1D* leftOutflow,
-  const int              rightNeighborRank,
-  Blocks::Block1D*       o_rightInflow,
-  const Blocks::Block1D* rightOutflow,
-  MPI_Datatype           mpiCol
+void exchangeLayers(
+  const int    leftNeighborRank,
+  double*      o_leftInflow,
+  double*      leftOutflow,
+  const int    rightNeighborRank,
+  double*      o_rightInflow,
+  double*      rightOutflow,
+  MPI_Datatype mpiCol,
+  int          mpicol_len
 ) {
-  MPI_Status status;
+  // Create the window objects
+  MPI_Win leftWin, rightWin;
 
-  // Send to left, receive from the right:
-  MPI_Sendrecv(
-    leftOutflow->h.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    1,
-    o_rightInflow->h.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    1,
-    MPI_COMM_WORLD,
-    &status
+  // if (rightNeighborRank >= 0) { // Create the windows for the left and right ghost layers
+  MPI_Win_create(
+    leftOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
   );
 
-  MPI_Sendrecv(
-    leftOutflow->hu.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    2,
-    o_rightInflow->hu.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    2,
-    MPI_COMM_WORLD,
-    &status
+  MPI_Win_fence(0, rightWin);
+  MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
+  MPI_Win_fence(0, rightWin);
+  
+
+  MPI_Win_free(&rightWin);
+
+  // if (leftNeighborRank >= 0) {
+  MPI_Win_create(
+    rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
   );
 
-  MPI_Sendrecv(
-    leftOutflow->hv.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    3,
-    o_rightInflow->hv.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    3,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  // Send to right, receive from the left:
-  MPI_Sendrecv(
-    rightOutflow->h.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    4,
-    o_leftInflow->h.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    4,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    rightOutflow->hu.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    5,
-    o_leftInflow->hu.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    5,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    rightOutflow->hv.getData(),
-    1,
-    mpiCol,
-    rightNeighborRank,
-    6,
-    o_leftInflow->hv.getData(),
-    1,
-    mpiCol,
-    leftNeighborRank,
-    6,
-    MPI_COMM_WORLD,
-    &status
-  );
-}
-
-void exchangeBottomTopGhostLayers(
-  const int              bottomNeighborRank,
-  Blocks::Block1D*       o_bottomNeighborInflow,
-  const Blocks::Block1D* bottomNeighborOutflow,
-  const int              topNeighborRank,
-  Blocks::Block1D*       o_topNeighborInflow,
-  const Blocks::Block1D* topNeighborOutflow,
-  MPI_Datatype           mpiRow
-) {
-  MPI_Status status;
-
-  // Send to bottom, receive from the top:
-  MPI_Sendrecv(
-    bottomNeighborOutflow->h.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    11,
-    o_topNeighborInflow->h.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    11,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    bottomNeighborOutflow->hu.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    12,
-    o_topNeighborInflow->hu.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    12,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    bottomNeighborOutflow->hv.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    13,
-    o_topNeighborInflow->hv.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    13,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  // Send to top, receive from the bottom:
-  MPI_Sendrecv(
-    topNeighborOutflow->h.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    14,
-    o_bottomNeighborInflow->h.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    14,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    topNeighborOutflow->hu.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    15,
-    o_bottomNeighborInflow->hu.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    15,
-    MPI_COMM_WORLD,
-    &status
-  );
-
-  MPI_Sendrecv(
-    topNeighborOutflow->hv.getData(),
-    1,
-    mpiRow,
-    topNeighborRank,
-    16,
-    o_bottomNeighborInflow->hv.getData(),
-    1,
-    mpiRow,
-    bottomNeighborRank,
-    16,
-    MPI_COMM_WORLD,
-    &status
-  );
+  MPI_Win_fence(0, leftWin);
+  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
+  MPI_Win_fence(0, leftWin);
+  MPI_Win_free(&leftWin);
 }
