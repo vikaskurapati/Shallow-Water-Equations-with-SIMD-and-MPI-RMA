@@ -67,6 +67,8 @@ void fpExceptionHandler(const int signal, const int nSubCode);
  */
 int computeNumberOfBlockRows(int numberOfProcesses);
 
+void exchangeNeighborInfo(int* currentinfo, int* neighborInfo, int mpiRank, int topNeighborRank, int bottomNeighborRank);
+
 void exchangeLayers(
   const int    leftNeighborRank,
   double*      o_leftInflow,
@@ -75,7 +77,8 @@ void exchangeLayers(
   double*      o_rightInflow,
   double*      rightOutflow,
   MPI_Datatype mpiCol,
-  int          len
+  int          len,
+  MPI_Datatype mpiCol2
 );
 
 int main(int argc, char** argv) {
@@ -163,7 +166,6 @@ int main(int argc, char** argv) {
                    : numberOfGridCellsY - (numberOfBlocksY - 1) * (numberOfGridCellsY / numberOfBlocksY);
   int nXNormal = numberOfGridCellsX / numberOfBlocksX;
   int nYNormal = numberOfGridCellsY / numberOfBlocksY;
-
   Tools::Logger::logger.printNumberOfCellsPerProcess(nXLocal, nYLocal);
 
   // Create a simple artificial scenario
@@ -270,16 +272,37 @@ int main(int argc, char** argv) {
   row_disp   = nYLocal + 2;
   //! MPI column-vector: 1 block, nYLocal+2 elements per block, stride of 1
   // std::cout<<"\nVector"<<nYLocal+2<<" " <<std::endl;
+  // std::cout<<"\nVector"<<nYLocal+2<<" " <<std::endl;
   MPI_Datatype mpiCol;
   MPI_Type_vector(1, nYLocal + 2, 1, MY_MPI_FLOAT, &mpiCol);
   MPI_Type_commit(&mpiCol);
   mpicol_len = 1 * (nYLocal + 2);
   col_disp   = 1;
+
+  
+  
   // Compute MPI ranks of the neighbour processes
   int leftNeighborRank   = (blockPositionX > 0) ? mpiRank - numberOfBlocksY : MPI_PROC_NULL;
   int rightNeighborRank  = (blockPositionX < numberOfBlocksX - 1) ? mpiRank + numberOfBlocksY : MPI_PROC_NULL;
   int bottomNeighborRank = (blockPositionY > 0) ? mpiRank - 1 : MPI_PROC_NULL;
   int topNeighborRank    = (blockPositionY < numberOfBlocksY - 1) ? mpiRank + 1 : MPI_PROC_NULL;
+  int  localvariables[2] = {nXLocal, nYLocal};
+  int* currentinfo             = &localvariables[0];
+  int* neighborinfo    = (int*)malloc(4 * sizeof(int));
+  exchangeNeighborInfo(currentinfo,neighborinfo,mpiRank,topNeighborRank,bottomNeighborRank);
+  MPI_Datatype mpiCol2;
+
+  if (topNeighborRank>=0) {
+    MPI_Type_vector(*(neighborinfo+0) + 2, 1, *(neighborinfo+1) + 2, MY_MPI_FLOAT, &mpiCol2);
+    MPI_Type_commit(&mpiCol2);
+  }
+  else if (bottomNeighborRank>=0) {
+    MPI_Type_vector(*(neighborinfo+2) + 2, 1, *(neighborinfo+3) + 2, MY_MPI_FLOAT, &mpiCol2);
+    MPI_Type_commit(&mpiCol2);
+  }
+  else{
+    mpiCol2 = mpiCol;
+  }
 
   // Print the MPI grid
   Tools::Logger::logger.getDefaultOutputStream()
@@ -294,7 +317,8 @@ int main(int argc, char** argv) {
     rightInflow->h.getData(),
     rightOutflow->h.getData(),
     mpiCol,
-    mpicol_len
+    mpicol_len,
+    mpiCol
   );
 
   exchangeLayers(
@@ -305,7 +329,8 @@ int main(int argc, char** argv) {
     bottomInflow->h.getData(),
     bottomOutflow->h.getData(),
     mpiRow,
-    mpirow_len
+    mpirow_len,
+    mpiCol2
   );
 
   if (mpiRank == 0) {
@@ -321,7 +346,8 @@ int main(int argc, char** argv) {
     rightInflow->hu.getData(),
     rightOutflow->hu.getData(),
     mpiCol,
-    mpicol_len
+    mpicol_len,
+    mpiCol
   );
   exchangeLayers(
     topNeighborRank,
@@ -331,7 +357,8 @@ int main(int argc, char** argv) {
     bottomInflow->hu.getData(),
     bottomOutflow->hu.getData(),
     mpiRow,
-    mpirow_len
+    mpirow_len,
+    mpiCol2
   );
 
   exchangeLayers(
@@ -342,7 +369,8 @@ int main(int argc, char** argv) {
     rightInflow->hv.getData(),
     rightOutflow->hv.getData(),
     mpiCol,
-    mpicol_len
+    mpicol_len,
+    mpiCol
   );
   exchangeLayers(
     topNeighborRank,
@@ -352,7 +380,8 @@ int main(int argc, char** argv) {
     bottomInflow->hv.getData(),
     bottomOutflow->hv.getData(),
     mpiRow,
-    mpirow_len
+    mpirow_len,
+    mpiCol2
   );
 
   Tools::ProgressBar progressBar(endSimulationTime, mpiRank);
@@ -363,21 +392,21 @@ int main(int argc, char** argv) {
   // Boundary size of the ghost layers
   Writers::BoundarySize boundarySize = {{1, 1, 1, 1}};
 
-  std::string fileName = Writers::generateBaseFileName(baseName, blockPositionX, blockPositionY);
-  auto        writer   = Writers::Writer::createWriterInstance(
-    fileName,
-    waveBlock->getBathymetry(),
-    boundarySize,
-    nXLocal,
-    nYLocal,
-    cellSizeX,
-    cellSizeY,
-    blockPositionX * nXLocal,
-    blockPositionY * nYLocal,
-    originX,
-    originY,
-    0
-  );
+  // std::string fileName = Writers::generateBaseFileName(baseName, blockPositionX, blockPositionY);
+  // auto        writer   = Writers::Writer::createWriterInstance(
+  //   fileName,
+  //   waveBlock->getBathymetry(),
+  //   boundarySize,
+  //   nXLocal,
+  //   nYLocal,
+  //   cellSizeX,
+  //   cellSizeY,
+  //   blockPositionX * nXLocal,
+  //   blockPositionY * nYLocal,
+  //   originX,
+  //   originY,
+  //   0
+  // );
 
   // Write zero time step
   // writer->writeTimeStep(waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), 0.0);
@@ -398,7 +427,7 @@ int main(int argc, char** argv) {
     while (simulationTime < checkPoints[cp]) {
       // Reset CPU-Communication clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU-Communication");
-      
+
       exchangeLayers(
         leftNeighborRank,
         leftInflow->h.getData(),
@@ -407,7 +436,8 @@ int main(int argc, char** argv) {
         rightInflow->h.getData(),
         rightOutflow->h.getData(),
         mpiCol,
-        mpicol_len
+        mpicol_len,
+        mpiCol
       );
 
       exchangeLayers(
@@ -418,7 +448,8 @@ int main(int argc, char** argv) {
         bottomInflow->h.getData(),
         bottomOutflow->h.getData(),
         mpiRow,
-        mpirow_len
+        mpirow_len,
+        mpiCol2
       );
 
       exchangeLayers(
@@ -429,7 +460,8 @@ int main(int argc, char** argv) {
         rightInflow->hu.getData(),
         rightOutflow->hu.getData(),
         mpiCol,
-        mpicol_len
+        mpicol_len,
+        mpiCol
       );
       exchangeLayers(
         topNeighborRank,
@@ -439,7 +471,8 @@ int main(int argc, char** argv) {
         bottomInflow->hu.getData(),
         bottomOutflow->hu.getData(),
         mpiRow,
-        mpirow_len
+        mpirow_len,
+        mpiCol2
       );
       exchangeLayers(
         leftNeighborRank,
@@ -449,7 +482,8 @@ int main(int argc, char** argv) {
         rightInflow->hv.getData(),
         rightOutflow->hv.getData(),
         mpiCol,
-        mpicol_len
+        mpicol_len,
+        mpiCol
       );
       exchangeLayers(
         topNeighborRank,
@@ -459,18 +493,19 @@ int main(int argc, char** argv) {
         bottomInflow->hv.getData(),
         bottomOutflow->hv.getData(),
         mpiRow,
-        mpirow_len
+        mpirow_len,
+        mpiCol2
       );
       // Reset the cpu clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU");
 
       // Set values in ghost cells
       waveBlock->setGhostLayer();
-      
+
       //  Compute numerical flux on each edge
-      
+
       waveBlock->computeNumericalFluxes();
-      
+
       //  Approximate the maximum time step
       //  waveBlock->computeMaxTimeStep();
 
@@ -572,52 +607,64 @@ int computeNumberOfBlockRows(int numberOfProcesses) {
 }
 
 void exchangeLayers(
-  const int    leftNeighborRank, // Rank of the left neighbor process
-  double*      o_leftInflow,     // Inflow buffer for the left neighbor
-  double*      leftOutflow,      // Outflow buffer for the left neighbor
-  const int    rightNeighborRank,// Rank of the right neighbor process
-  double*      o_rightInflow,    // Inflow buffer for the right neighbor
-  double*      rightOutflow,     // Outflow buffer for the right neighbor
-  MPI_Datatype mpiCol,           // MPI data type for the ghost layer column
-  int          mpicol_len        // Length of the ghost layer column
+  const int    leftNeighborRank,  // Rank of the left neighbor process
+  double*      o_leftInflow,      // Inflow buffer for the left neighbor
+  double*      leftOutflow,       // Outflow buffer for the left neighbor
+  const int    rightNeighborRank, // Rank of the right neighbor process
+  double*      o_rightInflow,     // Inflow buffer for the right neighbor
+  double*      rightOutflow,      // Outflow buffer for the right neighbor
+  MPI_Datatype mpiCol,            // MPI data type for the ghost layer column
+  int          mpicol_len,        // Length of the ghost layer column
+  MPI_Datatype mpiCol2            // MPI data type for the ghost layer column
 ) {
-  MPI_Win leftWin, rightWin;  // Window objects for the left and right ghost layers
+  MPI_Win leftWin, rightWin; // Window objects for the left and right ghost layers
 
   //  create the window for the right ghost layer
-  
-    MPI_Win_create(
-      leftOutflow, 
-      (mpicol_len) * sizeof(MY_MPI_FLOAT), 
-      sizeof(MY_MPI_FLOAT), 
-      MPI_INFO_NULL, 
-      MPI_COMM_WORLD, 
-      &rightWin
-    );
 
-    // Synchronize the window before accessing the data
-    MPI_Win_fence(0, rightWin);
-    MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
-    MPI_Win_fence(0, rightWin);
-    
-    // Free the window after use
-    MPI_Win_free(&rightWin);
+  MPI_Win_create(
+    leftOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
+  );
+
+  // Synchronize the window before accessing the data
+  MPI_Win_fence(0, rightWin);
+  MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol2, rightWin);
+  MPI_Win_fence(0, rightWin);
+
+  // Free the window after use
+  MPI_Win_free(&rightWin);
 
   //  create the window for the left ghost layer
-  
-    MPI_Win_create(
-      rightOutflow, 
-      (mpicol_len) * sizeof(MY_MPI_FLOAT), 
-      sizeof(MY_MPI_FLOAT), 
-      MPI_INFO_NULL, 
-      MPI_COMM_WORLD, 
-      &leftWin
-    );
 
+  MPI_Win_create(
+    rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
+  );
+  // Synchronize the window before accessing the data
+  MPI_Win_fence(0, leftWin);
+  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol2, leftWin);
+  MPI_Win_fence(0, leftWin);
+
+  // Free the window after use
+  MPI_Win_free(&leftWin);
+}
+
+
+/*
+Exchange neighbor info for non contiguous communication of information
+*/
+void exchangeNeighborInfo(int* currentinfo, int* neighborInfo, int mpiRank, int topNeighborRank,int bottomNeighborRank) {
+  MPI_Win win;
+  
+  MPI_Win_create(currentinfo, 2 * sizeof(int), sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD, &win);
+  
     // Synchronize the window before accessing the data
-    MPI_Win_fence(0, leftWin);
-    MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
-    MPI_Win_fence(0, leftWin);
-    
-    // Free the window after use
-    MPI_Win_free(&leftWin);
+  MPI_Win_fence(0, win);
+  MPI_Get(neighborInfo, 2, MPI_INT, topNeighborRank, 0, 2, MPI_INT, win);
+  MPI_Get(neighborInfo+2, 2, MPI_INT, bottomNeighborRank, 0, 2, MPI_INT, win);
+  MPI_Win_fence(0, win);
+  // Free the window after use
+  MPI_Win_free(&win);
+
+  // Synchronize the window before accessing the data
+  
+  // Free the window after use
 }
