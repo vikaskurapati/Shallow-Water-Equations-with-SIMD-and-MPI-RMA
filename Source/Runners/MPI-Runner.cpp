@@ -67,7 +67,7 @@ void fpExceptionHandler(const int signal, const int nSubCode);
  */
 int computeNumberOfBlockRows(int numberOfProcesses);
 
-void exchangeLayers_h(
+void exchangeLayers(
   const int    leftNeighborRank,
   double*      o_leftInflow,
   double*      leftOutflow,
@@ -286,7 +286,7 @@ int main(int argc, char** argv) {
     << "Neighbors: " << leftNeighborRank << " (left), " << rightNeighborRank << " (right), " << bottomNeighborRank
     << " (bottom), " << topNeighborRank << " (top)" << std::endl;
 
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->h.getData(),
     leftOutflow->h.getData(),
@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
     mpicol_len
   );
 
-  exchangeLayers_h(
+  exchangeLayers(
     topNeighborRank,
     topInflow->h.getData(),
     topOutflow->h.getData(),
@@ -313,7 +313,7 @@ int main(int argc, char** argv) {
       // std::cout << "\nAFTER b[" << i << "] = " << *(rightInflow->h.getData() + i) << std::endl;
     }
   }
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->hu.getData(),
     leftOutflow->hu.getData(),
@@ -323,7 +323,7 @@ int main(int argc, char** argv) {
     mpiCol,
     mpicol_len
   );
-  exchangeLayers_h(
+  exchangeLayers(
     topNeighborRank,
     topInflow->hu.getData(),
     topOutflow->hu.getData(),
@@ -334,7 +334,7 @@ int main(int argc, char** argv) {
     mpirow_len
   );
 
-  exchangeLayers_h(
+  exchangeLayers(
     leftNeighborRank,
     leftInflow->hv.getData(),
     leftOutflow->hv.getData(),
@@ -344,7 +344,7 @@ int main(int argc, char** argv) {
     mpiCol,
     mpicol_len
   );
-  exchangeLayers_h(
+  exchangeLayers(
     topNeighborRank,
     topInflow->hv.getData(),
     topOutflow->hv.getData(),
@@ -399,7 +399,7 @@ int main(int argc, char** argv) {
       // Reset CPU-Communication clock
       Tools::Logger::logger.resetClockToCurrentTime("CPU-Communication");
       
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->h.getData(),
         leftOutflow->h.getData(),
@@ -410,7 +410,7 @@ int main(int argc, char** argv) {
         mpicol_len
       );
 
-      exchangeLayers_h(
+      exchangeLayers(
         topNeighborRank,
         topInflow->h.getData(),
         topOutflow->h.getData(),
@@ -421,7 +421,7 @@ int main(int argc, char** argv) {
         mpirow_len
       );
 
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->hu.getData(),
         leftOutflow->hu.getData(),
@@ -431,7 +431,7 @@ int main(int argc, char** argv) {
         mpiCol,
         mpicol_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         topNeighborRank,
         topInflow->hu.getData(),
         topOutflow->hu.getData(),
@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
         mpiRow,
         mpirow_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         leftNeighborRank,
         leftInflow->hv.getData(),
         leftOutflow->hv.getData(),
@@ -451,7 +451,7 @@ int main(int argc, char** argv) {
         mpiCol,
         mpicol_len
       );
-      exchangeLayers_h(
+      exchangeLayers(
         topNeighborRank,
         topInflow->hv.getData(),
         topOutflow->hv.getData(),
@@ -571,38 +571,53 @@ int computeNumberOfBlockRows(int numberOfProcesses) {
   return numberOfRows;
 }
 
-void exchangeLayers_h(
-  const int    leftNeighborRank,
-  double*      o_leftInflow,
-  double*      leftOutflow,
-  const int    rightNeighborRank,
-  double*      o_rightInflow,
-  double*      rightOutflow,
-  MPI_Datatype mpiCol,
-  int          mpicol_len
+void exchangeLayers(
+  const int    leftNeighborRank, // Rank of the left neighbor process
+  double*      o_leftInflow,     // Inflow buffer for the left neighbor
+  double*      leftOutflow,      // Outflow buffer for the left neighbor
+  const int    rightNeighborRank,// Rank of the right neighbor process
+  double*      o_rightInflow,    // Inflow buffer for the right neighbor
+  double*      rightOutflow,     // Outflow buffer for the right neighbor
+  MPI_Datatype mpiCol,           // MPI data type for the ghost layer column
+  int          mpicol_len        // Length of the ghost layer column
 ) {
-  // Create the window objects
-  MPI_Win leftWin, rightWin;
+  MPI_Win leftWin, rightWin;  // Window objects for the left and right ghost layers
 
-  // if (rightNeighborRank >= 0) { // Create the windows for the left and right ghost layers
-  MPI_Win_create(
-    leftOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
-  );
-
-  MPI_Win_fence(0, rightWin);
-  MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
-  MPI_Win_fence(0, rightWin);
+  //  create the window for the right ghost layer
   
+    MPI_Win_create(
+      leftOutflow, 
+      (mpicol_len) * sizeof(MY_MPI_FLOAT), 
+      sizeof(MY_MPI_FLOAT), 
+      MPI_INFO_NULL, 
+      MPI_COMM_WORLD, 
+      &rightWin
+    );
 
-  MPI_Win_free(&rightWin);
+    // Synchronize the window before accessing the data
+    MPI_Win_fence(0, rightWin);
+    MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol, rightWin);
+    MPI_Win_fence(0, rightWin);
+    
+    // Free the window after use
+    MPI_Win_free(&rightWin);
 
-  // if (leftNeighborRank >= 0) {
-  MPI_Win_create(
-    rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
-  );
+  //  create the window for the left ghost layer
+  
+    MPI_Win_create(
+      rightOutflow, 
+      (mpicol_len) * sizeof(MY_MPI_FLOAT), 
+      sizeof(MY_MPI_FLOAT), 
+      MPI_INFO_NULL, 
+      MPI_COMM_WORLD, 
+      &leftWin
+    );
 
-  MPI_Win_fence(0, leftWin);
-  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
-  MPI_Win_fence(0, leftWin);
-  MPI_Win_free(&leftWin);
+    // Synchronize the window before accessing the data
+    MPI_Win_fence(0, leftWin);
+    MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol, leftWin);
+    MPI_Win_fence(0, leftWin);
+    
+    // Free the window after use
+    MPI_Win_free(&leftWin);
 }
