@@ -622,29 +622,29 @@ void exchangeLayers(
   //  create the window for the right ghost layer
 
   MPI_Win_create(
-    leftOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
+    o_leftInflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
   );
 
-  // Synchronize the window before accessing the data
-  MPI_Win_fence(0, rightWin);
-  MPI_Get(o_rightInflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol2, rightWin);
-  MPI_Win_fence(0, rightWin);
-
-  // Free the window after use
-  MPI_Win_free(&rightWin);
-
-  //  create the window for the left ghost layer
-
-  MPI_Win_create(
-    rightOutflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &leftWin
-  );
   // Synchronize the window before accessing the data
   MPI_Win_fence(0, leftWin);
-  MPI_Get(o_leftInflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol2, leftWin);
+  MPI_Put(rightOutflow, 1, mpiCol, rightNeighborRank, 0, 1, mpiCol2, leftWin);
   MPI_Win_fence(0, leftWin);
 
   // Free the window after use
   MPI_Win_free(&leftWin);
+
+  //  create the window for the left ghost layer
+
+  MPI_Win_create(
+    o_rightInflow, (mpicol_len) * sizeof(MY_MPI_FLOAT), sizeof(MY_MPI_FLOAT), MPI_INFO_NULL, MPI_COMM_WORLD, &rightWin
+  );
+  // Synchronize the window before accessing the data
+  MPI_Win_fence(0, rightWin);
+  MPI_Put(leftOutflow, 1, mpiCol, leftNeighborRank, 0, 1, mpiCol2, rightWin);
+  MPI_Win_fence(0, rightWin);
+
+  // Free the window after use
+  MPI_Win_free(&rightWin);
 }
 
 
