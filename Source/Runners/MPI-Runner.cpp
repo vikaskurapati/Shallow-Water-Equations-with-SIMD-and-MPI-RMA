@@ -71,11 +71,11 @@ void exchangeNeighborInfo(int* currentinfo, int* neighborInfo, int mpiRank, int 
 
 void exchangeLayers(
   const int    leftNeighborRank,
-  double*      o_leftInflow,
-  double*      leftOutflow,
+  RealType*      o_leftInflow,
+  RealType*      leftOutflow,
   const int    rightNeighborRank,
-  double*      o_rightInflow,
-  double*      rightOutflow,
+  RealType*      o_rightInflow,
+  RealType*      rightOutflow,
   MPI_Datatype mpiCol,
   int          len,
   MPI_Datatype mpiCol2
@@ -188,10 +188,10 @@ int main(int argc, char** argv) {
   waveBlock->initialiseScenario(originX, originY, scenario, true);
 
   // Get the final simulation time from the scenario
-  double endSimulationTime = scenario.getEndSimulationTime();
+  RealType endSimulationTime = scenario.getEndSimulationTime();
 
   // Checkpoints when output files are written
-  double* checkPoints = new double[numberOfCheckPoints + 1];
+  RealType* checkPoints = new RealType[numberOfCheckPoints + 1];
 
   // Compute the checkpoints in time
   for (int cp = 0; cp <= numberOfCheckPoints; cp++) {
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
   Tools::Logger::logger.printStartMessage();
   Tools::Logger::logger.initWallClockTime(time(NULL)); // MPI_Wtime()
 
-  double simulationTime = 0.0;
+  RealType simulationTime = 0.0;
   progressBar.update(simulationTime);
 
   unsigned int iterations = 0;
