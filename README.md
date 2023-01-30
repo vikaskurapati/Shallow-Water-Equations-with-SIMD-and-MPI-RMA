@@ -29,6 +29,7 @@ As build system configurator we use CMake. To compile the code execute the follo
 * For developing, consider `cmake .. -DENABLE_DEVELOPER_MODE=ON`. For an overview of all availble options, use `ccmake ..`
 * Run Make: `make` (or `make -j` for compiling with multiple cores)
 * Run `make help` to see all available targets to build.
+* Run always with a `-DENABLE_VECTORIZATION=ON` as we have not yet implemented the robust scenarios for user inputs
 
 ### Running a Simulation
 * Run the code in serial via `./SWE-Serial-Runner`
@@ -41,6 +42,7 @@ You can add new source files by just creating them somewhere within the `Source`
 
 ### Testing
 Some basic unit tests have been implemented (`make test`). Feel free to add your own test cases inside the `Tests` folder.
+* The current unit tests, run only with 2 cores as that is how they are desined
 
 ### Visualization with ParaView
 The command line version of SWE will write a NetCDF file or multiple ASCII-VTK files (depending on the build configuration) which can be opened and visualized with ParaView.
