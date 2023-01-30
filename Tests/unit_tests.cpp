@@ -7,7 +7,6 @@
 #include <iostream>
 #include <random>
 
-#include "SWE-Solvers/Source/FWaveSolver.hpp"
 #include "SWE-Solvers/Source/FWaveVecSolver.hpp"
 #include "Tools/RealType.hpp"
 
@@ -41,18 +40,12 @@ TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]"
     o_huUpdateRight[i] = distribution(generator);
     o_maxWaveSpeed[i]  = distribution(generator);
   }
-
-  VectorType hLeft_vec   = load_vector(hLeft);
-  VectorType hRight_vec  = load_vector(hRight);
-  VectorType huLeft_vec  = load_vector(huLeft);
-  VectorType huRight_vec = load_vector(huRight);
-  VectorType bLeft_vec   = load_vector(bLeft);
-  VectorType bRight_vec  = load_vector(bRight);
-  VectorType o_hUpdateLeft_vec;
-  VectorType o_hUpdateRight_vec;
-  VectorType o_huUpdateLeft_vec;
-  VectorType o_huUpdateRight_vec;
-  VectorType o_maxWaveSpeed_vec;
+  
+  RealType o_hUpdateLeft_vec[VectorLength];
+  RealType o_hUpdateRight_vec[VectorLength];
+  RealType o_huUpdateLeft_vec[VectorLength];
+  RealType o_huUpdateRight_vec[VectorLength];
+  RealType o_maxWaveSpeed_vec;
 
   for (int i = 0; i < VectorLength; i++) {
     fWaveVecSolver.computeNetUpdates(
@@ -70,25 +63,24 @@ TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]"
     );
   }
 
-  // fWaveVecSolver.computeNetUpdates(
-  //   hLeft_vec,
-  //   hRight_vec,
-  //   huLeft_vec,
-  //   huRight_vec,
-  //   bLeft_vec,
-  //   bRight_vec,
-  //   o_hUpdateLeft_vec,
-  //   o_hUpdateRight_vec,
-  //   o_huUpdateLeft_vec,
-  //   o_huUpdateRight_vec,
-  //   o_maxWaveSpeed_vec
-  // );
+  fWaveVecSolver.computeNetUpdates_SIMD(
+    hLeft,
+    hRight,
+    huLeft,
+    huRight,
+    bLeft,
+    bRight,
+    o_hUpdateLeft_vec,
+    o_hUpdateRight_vec,
+    o_huUpdateLeft_vec,
+    o_huUpdateRight_vec,
+    o_maxWaveSpeed_vec
+  );
 
   bool are_equal = true;
 
   for (int i = 0; i < VectorLength; i++) {
     if (abs(o_hUpdateLeft[i] - o_hUpdateLeft_vec[i]) > 1e-6) {
-      printf("%f %f %f %f\n", o_huUpdateLeft_vec[0], o_huUpdateLeft_vec[1], o_huUpdateLeft_vec[2], o_huUpdateLeft_vec[3]);
       are_equal = false;
       break;
     }
@@ -127,12 +119,10 @@ TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]"
 
   are_equal = true;
 
-  for (int i = 0; i < VectorLength; i++) {
-    if (abs(o_maxWaveSpeed[i] - o_maxWaveSpeed_vec[i]) > 1e-6) {
+    if (abs(*std::max_element(o_maxWaveSpeed, o_maxWaveSpeed+VectorLength) - o_maxWaveSpeed_vec) > 1e-6) {
       are_equal = false;
-      break;
-    }
   }
+
   SECTION("Update max Wave Speed") { REQUIRE(are_equal); }
 }
 
