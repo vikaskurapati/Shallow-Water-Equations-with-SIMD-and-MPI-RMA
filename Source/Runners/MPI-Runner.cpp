@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
   Tools::Logger::logger.printNumberOfCellsPerProcess(nXLocal, nYLocal);
 
   // Create a simple artificial scenario
-  Scenarios::RadialDamBreakScenario scenario;
+  Scenarios::SplashingConeScenario scenario;
 
   // Compute the size of a single cell
   RealType cellSizeX = (scenario.getBoundaryPos(BoundaryEdge::Right) - scenario.getBoundaryPos(BoundaryEdge::Left))
@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
   );
 
   // Write zero time step
-  // writer->writeTimeStep(waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), 0.0);
+  writer->writeTimeStep(waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), 0.0);
 
   // Print the start message and reset the wall clock time
   progressBar.clear();
@@ -396,9 +396,9 @@ int main(int argc, char** argv) {
     progressBar.update(simulationTime);
 
     // Write output
-    // writer->writeTimeStep(
-    //   waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), simulationTime
-    // );
+    writer->writeTimeStep(
+      waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), simulationTime
+    );
   }
 
   progressBar.clear();
