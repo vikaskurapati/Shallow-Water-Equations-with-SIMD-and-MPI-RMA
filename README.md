@@ -36,6 +36,7 @@ As build system configurator we use CMake. To compile the code execute the follo
 * With `./SWE-Serial-Runner --help`, you can see additional command-line arguments you can pass.
 * Run the code in parallel via `mpirun -np nproc ./SWE-MPI-Runner`
 * With `./SWE-MPI-Runner --help`, you can see additional command-line arguments you can pass.
+* We recommend that the code be run with grid sizes larger than 4 because it tends to give floating point errors if the grid is too small. Although there are checks to prevent this, it can fail. But this doesnot discredit the correctness of the implementation since the original code also fails for very small grids.
 
 ### Adding new source files
 You can add new source files by just creating them somewhere within the `Source` folder. CMake automatically detects these files and adds them to the build.
@@ -81,3 +82,11 @@ Instead of using `make test`, run `ctest --verbose`.
 ## Course Material on SWE:
 * [SWE - Anatomy of a Parallel Shallow Water Code](http://www5.in.tum.de/SWE/lugano2013/swe_anatomy.pdf) (introduction given at the [CSCS-USI Summer School on Computer Simulations in Science and Engineering](http://icsweb.inf.unisi.ch/cms/index.php/component/content/article/12-news/95-summerschool2013.html)  in Lugano , July 8-19, 2013)
 * [SWE – An Education-Oriented Code to Solve the Shallow Water Equations](http://www.mac.tum.de/g2s3/swe_g2s3_2012.pdf) (presentation given at the [Gene Golub SIAM Summer School 2012](http://www.mac.tum.de/g2s3/) on "Simulation and Supercomputing in the Geosciences", Monterey, July 29 - August 10, 2012)
+
+
+### Major Changes in the Submission:
+
+1. ```swe-group2/Source/Runners/MPI-Runner.cpp``` - MPI RMA implemented
+2. ```swe-group2/Source/Blocks/WavePropagationBlock.cpp``` - SIMD changes computing Net updates
+3. ```swe-group2/Source/Tools/RealType.hpp``` - Aliasing vector types and operations for ease
+4. ```swe-group2/Source/SWE-Solvers/Source/FWaveVecSolver.hpp``` - SIMD-fied serial code for vector implementations
