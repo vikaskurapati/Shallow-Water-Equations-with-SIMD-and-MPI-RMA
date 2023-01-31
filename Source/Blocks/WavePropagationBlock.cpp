@@ -51,8 +51,9 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   RealType maxWaveSpeed = RealType(0.0);
 
   // Compute the net-updates for the vertical edges
-  for (int i = 1; i < nx_ + 2; i++) {
-    for (int j = 1; j < VectorLength * ((ny_ + 1) / VectorLength); j += VectorLength) {
+  int i, j;
+  for (i = 1; i < nx_ + 2; i++) {
+    for (j = 1; j < (ny_+1) -  (ny_+1)%VectorLength; j += VectorLength) {
       RealType maxEdgeSpeed = RealType(0.0);
       RealType hNetUpdatesLeft[VectorLength];
       RealType hNetUpdatesRight[VectorLength];
@@ -74,6 +75,10 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       );
 
       for (size_t k = 0; k < VectorLength; k++) {
+        if (j - 1 + k >=ny_)
+        {
+          break;
+        }
         hNetUpdatesLeft_[i - 1][j - 1 + k]   = hNetUpdatesLeft[k];
         hNetUpdatesRight_[i - 1][j - 1 + k]  = hNetUpdatesRight[k];
         huNetUpdatesLeft_[i - 1][j - 1 + k]  = huNetUpdatesLeft[k];
@@ -84,7 +89,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
 
-    for (int j = VectorLength * ((ny_ + 1) / VectorLength); j < ny_ + 1; j += VectorLength) {
+    for (j = (ny_+1) - (ny_+1)%VectorLength; j < ny_ + 1; j ++) {
       RealType maxEdgeSpeed = RealType(0.0);
 
       wavePropagationSolver_.computeNetUpdates(
@@ -105,11 +110,9 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
-
   // Compute the net-updates for the horizontal edges
-  for (int i = 1; i < nx_ + 1; i++) {
-    for (int j = 1; j < VectorLength * ((ny_ + 2) / VectorLength); j += VectorLength) {
-
+  for (i = 1; i < nx_ + 1; i++) {
+    for (j = 1; j < (ny_+2) - (ny_+2)%VectorLength; j += VectorLength) {
       RealType maxEdgeSpeed = RealType(0.0);
       RealType hNetUpdatesBelow[VectorLength];
       RealType hNetUpdatesAbove[VectorLength];
@@ -131,6 +134,10 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       );
 
       for (size_t k = 0; k < VectorLength; k++) {
+        if (j - 1 + k >=ny_+1)
+        {
+          break;
+        }
         hNetUpdatesBelow_[i - 1][j - 1 + k]  = hNetUpdatesBelow[k];
         hNetUpdatesAbove_[i - 1][j - 1 + k]  = hNetUpdatesAbove[k];
         hvNetUpdatesBelow_[i - 1][j - 1 + k] = hvNetUpdatesBelow[k];
@@ -141,7 +148,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
 
-    for (int j = VectorLength * ((ny_ + 1) / VectorLength); j < ny_ + 1; j += VectorLength) {
+    for (j=(ny_+2) - (ny_+2)%VectorLength; j < ny_ + 2; j ++) {
       RealType maxEdgeSpeed = 0.0;
       
       wavePropagationSolver_.computeNetUpdates(
@@ -161,8 +168,8 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       // Update the thread-local maximum wave speed
       maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
+    
   }
-
   if (maxWaveSpeed > 0.00001) {
     // Compute the time step width
     maxTimeStep_ = std::min(dx_ / maxWaveSpeed, dy_ / maxWaveSpeed);
@@ -173,7 +180,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
     // Might happen in dry cells
     maxTimeStep_ = std::numeric_limits<RealType>::max();
   }
-}
+} 
 
 void Blocks::WavePropagationBlock::updateUnknowns(RealType dt) {
   // Update cell averages with the net-updates
