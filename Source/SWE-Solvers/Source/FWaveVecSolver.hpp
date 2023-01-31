@@ -390,7 +390,7 @@ namespace Solvers {
       // ==============
       // 20 FLOPs (incl. 3 sqrt, 1 div, 2 min/max)
     }
-
+    #ifdef ENABLE_VECTORIZATION
     void fWaveComputeWaveSpeeds(
       const VectorType hLeft,
       const VectorType hRight,
@@ -422,7 +422,7 @@ namespace Solvers {
       o_waveSpeed0 = min_vector(characteristicSpeed0, roeSpeed0);
       o_waveSpeed1 = max_vector(characteristicSpeed1, roeSpeed1);
     }
-
+    #endif
 #ifdef ENABLE_VECTORIZATION
 #pragma omp declare simd
 #endif
@@ -462,7 +462,7 @@ namespace Solvers {
       // =========
       // 23 FLOPs in total (incl. 1 div)
     }
-
+    #ifdef ENABLE_VECTORIZATION
     void fWaveComputeWaveDecomposition(
       const VectorType hLeft,
       const VectorType hRight,
@@ -504,5 +504,6 @@ namespace Solvers {
       // =========
       // 23 FLOPs in total (incl. 1 div)
     }
+    #endif
   };
 } // namespace Solvers

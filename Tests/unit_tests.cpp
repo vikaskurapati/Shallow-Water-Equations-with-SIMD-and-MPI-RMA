@@ -13,6 +13,7 @@
 #include <mpi.h>
 #include <vector>
 
+// TEST FOR MPI RMA CHANGES
 void exchangeLayers_h(
   const int    leftNeighborRank,
   double*      o_leftInflow,
@@ -140,6 +141,9 @@ TEST_CASE("exchangeLayers_h", "[ExchangeLayers]") {
   MPI_Finalize();
 }
 
+
+// TEST FOR SIMD VECTORIZATION CHANGES
+#ifdef ENABLE_VECTORIZATION
 TEST_CASE("computeNetUpdates is Tested for vectorization", "[computeNetUpdates]") {
   Solvers::FWaveVecSolver<RealType>        fWaveVecSolver;
   std::default_random_engine               generator;
@@ -441,3 +445,4 @@ TEST_CASE("fWaveComputeWaveSpeeds is tested for vectorization", "[fWaveComputeWa
   }
   SECTION("Wave Speed 1") { REQUIRE(are_equal); }
 }
+#endif
