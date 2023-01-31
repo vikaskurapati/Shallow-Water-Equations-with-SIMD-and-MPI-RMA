@@ -191,7 +191,7 @@ namespace Solvers {
       // ========================
       // 54 FLOPs (3 sqrt, 4 div, 2 abs, 3 min/max)
     }
-
+    #ifdef ENABLE_VECTORIZATION
     void computeNetUpdates_SIMD(
       const RealType* const i_hLeft,
       const RealType* const i_hRight,
@@ -348,6 +348,7 @@ namespace Solvers {
         o_maxWaveSpeed = std::max(o_maxWaveSpeed, o_maxWaveSpeed_vec[i]);
       }
     }
+    #endif
 
 #ifdef ENABLE_VECTORIZATION
 #pragma omp declare simd

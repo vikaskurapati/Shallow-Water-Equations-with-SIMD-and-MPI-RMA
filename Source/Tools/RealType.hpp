@@ -1,13 +1,22 @@
 #include <immintrin.h>
 #pragma once
 
+#ifdef ENABLE_SINGLE_PRECISION
+using RealType                                   = float;
+#define MY_MPI_FLOAT MPI_FLOAT
+#else
+using RealType                                   = double;
+#define MY_MPI_FLOAT MPI_DOUBLE
+#endif
 // Datatype for the type of data stored in the structures
+#ifdef ENABLE_VECTORIZATION
 #ifdef ENABLE_SINGLE_PRECISION
 using RealType                                   = float;
 using VectorType                                 = __m256;
 constexpr int                       VectorLength = 8;
 typedef decltype(_mm256_setzero_ps) set_vec_zero;
-constexpr auto                      load_vector        = _mm256_load_ps;
+constexpr auto                      load_vector        = _mm256_loadu_ps;
+constexpr auto set_vector_zero    = _mm256_setzero_ps;
 constexpr auto                      square_root_vector = _mm256_sqrt_ps;
 constexpr auto                      sub_vector         = _mm256_sub_ps;
 constexpr auto                      add_vector         = _mm256_add_ps;
@@ -46,4 +55,5 @@ constexpr auto store_vector       = _mm256_storeu_pd;
 constexpr auto maximum_vector     = _mm256_max_pd;
 
 #define MY_MPI_FLOAT MPI_DOUBLE
+#endif
 #endif
