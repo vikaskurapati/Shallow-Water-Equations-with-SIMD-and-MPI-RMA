@@ -390,26 +390,26 @@ int main(int argc, char** argv) {
   progressBar.update(0.0);
 
   // Boundary size of the ghost layers
-  //Writers::BoundarySize boundarySize = {{1, 1, 1, 1}};
+  Writers::BoundarySize boundarySize = {{1, 1, 1, 1}};
 
-  // std::string fileName = Writers::generateBaseFileName(baseName, blockPositionX, blockPositionY);
-  // auto        writer   = Writers::Writer::createWriterInstance(
-  //   fileName,
-  //   waveBlock->getBathymetry(),
-  //   boundarySize,
-  //   nXLocal,
-  //   nYLocal,
-  //   cellSizeX,
-  //   cellSizeY,
-  //   blockPositionX * nXLocal,
-  //   blockPositionY * nYLocal,
-  //   originX,
-  //   originY,
-  //   0
-  // );
+   std::string fileName = Writers::generateBaseFileName(baseName, blockPositionX, blockPositionY);
+   auto        writer   = Writers::Writer::createWriterInstance(
+     fileName,
+     waveBlock->getBathymetry(),
+     boundarySize,
+     nXLocal,
+     nYLocal,
+     cellSizeX,
+     cellSizeY,
+     blockPositionX * nXLocal,
+     blockPositionY * nYLocal,
+     originX,
+     originY,
+     0
+  );
 
   // Write zero time step
-  // writer->writeTimeStep(waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), 0.0);
+   writer->writeTimeStep(waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), 0.0);
 
   // Print the start message and reset the wall clock time
   progressBar.clear();
@@ -544,9 +544,9 @@ int main(int argc, char** argv) {
     progressBar.update(simulationTime);
 
     // Write output
-    // writer->writeTimeStep(
-    //   waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), simulationTime
-    // );
+    writer->writeTimeStep(
+       waveBlock->getWaterHeight(), waveBlock->getDischargeHu(), waveBlock->getDischargeHv(), simulationTime
+     );
   }
 
   progressBar.clear();

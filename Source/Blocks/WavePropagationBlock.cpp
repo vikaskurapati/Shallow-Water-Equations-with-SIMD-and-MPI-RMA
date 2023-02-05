@@ -138,6 +138,10 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
         );
 
         for (size_t k = 0; k < VectorLength; k++) {
+          if (j-1+k >= ny_)
+          {
+            break;
+          }
           hNetUpdatesLeft_[i - 1][j - 1 + k]   = hNetUpdatesLeft[k];
           hNetUpdatesRight_[i - 1][j - 1 + k]  = hNetUpdatesRight[k];
           huNetUpdatesLeft_[i - 1][j - 1 + k]  = huNetUpdatesLeft[k];
@@ -193,6 +197,10 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
         );
 
         for (size_t k = 0; k < VectorLength; k++) {
+          if (j-1+k >= ny_+1)
+          {
+            break;
+          }
           hNetUpdatesBelow_[i - 1][j - 1 + k]  = hNetUpdatesBelow[k];
           hNetUpdatesAbove_[i - 1][j - 1 + k]  = hNetUpdatesAbove[k];
           hvNetUpdatesBelow_[i - 1][j - 1 + k] = hvNetUpdatesBelow[k];
